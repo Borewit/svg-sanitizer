@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="30" fill="#DA3A00">
+    <animate
+            attributeName="fill"
+            values="#68768a;#DA3A00"
+            calcMode="discrete"
+            dur="0.2s"
+            repeatCount="indefinite"/>
+    </circle>
+</svg>

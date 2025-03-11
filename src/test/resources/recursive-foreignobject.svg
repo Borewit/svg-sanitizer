@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml"
+width="68" height="68" viewBox="-34 -34 68 68" version="1.1">
+<circle cx="0" cy="0" r="24" fill="#c8c8c8"/>
+<foreignObject x="0" y="0" width="34" height="34">
+<xhtml:xhtml>
+<xhtml:head>
+<xhtml:script>
+window.onload = function() {
+var query = "?" + (parseInt(document.location.search.split("?")[1]) + 1)
+var obj = document.getElementsByTagName("object")[0];
+obj.setAttribute("data", document.location.protocol + "//" +
+document.location.host + document.location.pathname + query);
+};
+</xhtml:script>
+</xhtml:head>
+<xhtml:body>
+<xhtml:object width="34" height="34" type="image/svg+xml"
+data="recursive-foreignobject.svg">circle</xhtml:object>
+</xhtml:body>
+</xhtml:xhtml>
+</foreignObject>
+</svg>

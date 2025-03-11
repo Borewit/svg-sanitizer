@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="100" height="100">
+    <script>alert('XSS');</script>
+    <rect x="10" y="10" width="80" height="80" fill="blue" onclick="alert('clicked');"/>
+    <a xlink:href="javascript:alert('XSS');">
+        <text x="10" y="50">Click me</text>
+    </a>
+</svg>

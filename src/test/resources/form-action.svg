@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" xml:space="preserve"
+     width="811.738" height="229.779" viewBox="0 0 214.772 60.796">
+    <form action="javascript:alert('1')">
+        <input type="submit"></input>
+    </form>
+    
+        &lt;form action="javascript:alert('1')"&gt;
+            &lt;input type="submit" onclick="javascript:alert('1')"/&gt;
+        &lt;/form&gt;
+    
+</svg>

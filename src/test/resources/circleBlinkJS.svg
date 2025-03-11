@@ -1,0 +1,20 @@
+<svg width="500" height="300" xmlns="http://www.w3.org/2000/svg">
+    <circle id="circle" cx="50" cy="50" r="30" fill="#DA3A00" />
+    <script>
+        function setColor(color) {
+            window.document.getElementById("circle").setAttribute("style", `fill: ${color}`)
+        }
+
+        function setOrange() {
+            setColor("#DA3A00")
+            setTimeout(setGrey, 200)
+        }
+
+        function setGrey() {
+            setColor("#68768a")
+            setTimeout(setOrange, 200)
+        }
+
+        setOrange()
+    </script>
+</svg>
