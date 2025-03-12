@@ -28,10 +28,10 @@ public class SVGSanitizer {
   }
 
   private static DocumentBuilderFactory makeDocumentBuilderFactory() throws ParserConfigurationException {
-    DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+    final DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
     factory.setValidating(false);
     factory.setNamespaceAware(true);
-    factory.setFeature("http://xml.org/sax/features/namespaces", false);
+    factory.setFeature("http://xml.org/sax/features/namespaces", true);
     factory.setFeature("http://xml.org/sax/features/validation", false);
     factory.setFeature("http://apache.org/xml/features/nonvalidating/load-dtd-grammar", false);
     factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
@@ -71,33 +71,33 @@ public class SVGSanitizer {
   }
 
   public void sanitize(InputStream is, OutputStream os) throws Exception {
-    DocumentBuilder builder = this.factory.newDocumentBuilder();
+    final DocumentBuilder builder = this.factory.newDocumentBuilder();
     Document doc = builder.parse(is);
 
     removeUnsafeElements(doc);
     removeUnsafeAttributes(doc.getDocumentElement());
 
-    TransformerFactory transformerFactory = TransformerFactory.newInstance();
+    final TransformerFactory transformerFactory = TransformerFactory.newInstance();
     transformerFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
     // Check OWASP recommendations XMLConstants.ACCESS_EXTERNAL_DTD & XMLConstants.ACCESS_EXTERNAL_STYLESHEET (are set with XMLConstants.FEATURE_SECURE_PROCESSING)
     // https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html#transformerfactory
     assert ("".equals(transformerFactory.getAttribute(XMLConstants.ACCESS_EXTERNAL_DTD)));
     assert ("".equals(transformerFactory.getAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET)));
 
-    Transformer transformer = transformerFactory.newTransformer();
+    final Transformer transformer = transformerFactory.newTransformer();
     transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
     transformer.setOutputProperty(OutputKeys.INDENT, "yes");
 
-    DOMSource source = new DOMSource(doc);
+    final DOMSource source = new DOMSource(doc);
     StreamResult result = new StreamResult(os);
     transformer.transform(source, result);
   }
 
   private static void removeUnsafeElements(Document doc) {
     for (String tag : UNSAFE_ELEMENTS) {
-      NodeList nodeList = doc.getElementsByTagName(tag);
+      final NodeList nodeList = doc.getElementsByTagName(tag);
       for (int i = nodeList.getLength() - 1; i >= 0; i--) {
-        Node node = nodeList.item(i);
+        final Node node = nodeList.item(i);
         if (node.getParentNode() != null) {
           node.getParentNode().removeChild(node);
         }
@@ -106,24 +106,24 @@ public class SVGSanitizer {
   }
 
   private static void removeUnsafeAttributes(Element element) {
-    NamedNodeMap attributes = element.getAttributes();
+    final NamedNodeMap attributes = element.getAttributes();
     for (int i = attributes.getLength() - 1; i >= 0; i--) {
-      Node attr = attributes.item(i);
-      String attrName = attr.getNodeName().toLowerCase();
+      final Node attr = attributes.item(i);
+      String attrName = attr.getLocalName().toLowerCase();
       String attrValue = attr.getNodeValue().toLowerCase();
 
       if (UNSAFE_ATTRIBUTES.contains(attrName) || attrValue.startsWith("javascript:")) {
         element.removeAttribute(attr.getNodeName());
       }
 
-      if (("href".equals(attrName) || "xlink:href".equals(attrName)) && !attrValue.startsWith("data:")) {
+      if ("href".equals(attrName) && !attrValue.startsWith("data:")) {
         element.removeAttribute(attr.getNodeName());
       }
     }
 
     NodeList children = element.getChildNodes();
     for (int i = 0; i < children.getLength(); i++) {
-      Node node = children.item(i);
+      final Node node = children.item(i);
       if (node instanceof Element) {
         removeUnsafeAttributes((Element) node);
       }
