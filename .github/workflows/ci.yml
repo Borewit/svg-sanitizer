@@ -17,6 +17,8 @@ jobs:
           cache: gradle
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+      - name: Code style check (Spotless)
+        run: ./gradlew spotlessCheck
       - name: Run build with Gradle Wrapper
         run: ./gradlew build
       - name: Test Report
