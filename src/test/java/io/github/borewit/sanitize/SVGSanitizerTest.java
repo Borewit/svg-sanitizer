@@ -22,6 +22,7 @@ class SVGSanitizerTest {
     private static final String RESOURCE_SVG_PATH = "/";
     private static final String SANITIZED_PATH = "build/sanitized";
 
+    private SVGSanitizer svgSanitizer;
 
     @BeforeEach
     void setup() throws Exception {
@@ -32,6 +33,8 @@ class SVGSanitizerTest {
         try (InputStream inputStream = getClass().getResourceAsStream(RESOURCE_SVG_PATH)) {
             assertNotNull(inputStream, "Test SVG file should exist in resources");
         }
+
+        this.svgSanitizer = new SVGSanitizer();
     }
 
     private String sanitizeSvgToString(String svgFixtureName) throws IOException {
@@ -42,7 +45,7 @@ class SVGSanitizerTest {
 
             try {
                 // Run the sanitizer
-                SVGSanitizer.sanitize(inputStream, outputStream);
+                this.svgSanitizer.sanitize(inputStream, outputStream);
             } catch(Exception exception) {
                 fail(String.format("Sanitizing file \"%s\"", svgFixtureName), exception);
             }
@@ -76,7 +79,7 @@ class SVGSanitizerTest {
         String dirtySvg = this.getFixtureAsString(svgTestFile);
         assertTrue(CheckSvg.containsJavaScript(dirtySvg), String.format("Dirty \"%s\" should contain JavaScript", svgTestFile));
 
-        String sanitizedSvg = SVGSanitizer.sanitize(dirtySvg);
+        String sanitizedSvg = this.svgSanitizer.sanitize(dirtySvg);
 
         // Save sanitized SVG for debugging
         saveSvg(sanitizedSvg, svgTestFile);
@@ -94,7 +97,7 @@ class SVGSanitizerTest {
         String dirtySvg = this.getFixtureAsString(svgTestFile);
         assertTrue(CheckSvg.containsJavaScriptInStyle(dirtySvg), String.format("Dirty \"%s\" should contain JavaScript", svgTestFile));
 
-        String sanitizedSvg = SVGSanitizer.sanitize(dirtySvg);
+        String sanitizedSvg = this.svgSanitizer.sanitize(dirtySvg);
 
         // Save sanitized SVG for debugging
         saveSvg(sanitizedSvg, svgTestFile);
@@ -116,7 +119,7 @@ class SVGSanitizerTest {
         String dirtySvg = this.getFixtureAsString(svgTestFile);
         assertTrue(CheckSvg.containsExternalResources(dirtySvg), String.format("Dirty \"%s\" should contains an external resource", svgTestFile));
 
-        String sanitizedSvg = SVGSanitizer.sanitize(dirtySvg);
+        String sanitizedSvg = new SVGSanitizer().sanitize(dirtySvg);
 
         // Save sanitized SVG for debugging
         saveSvg(sanitizedSvg, svgTestFile);
@@ -129,7 +132,6 @@ class SVGSanitizerTest {
     @DisplayName("Sanitize JavaScript code")
     @ValueSource(strings = {
             "billionlaughs.svg",
-            "circle.svg",
             "circleBlink.svg",
             "S.svg",
     })

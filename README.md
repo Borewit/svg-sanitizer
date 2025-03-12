@@ -1,3 +1,5 @@
+[![CI](https://github.com/Borewit/svg-sanitizer/actions/workflows/ci.yml/badge.svg)](https://github.com/Borewit/svg-sanitizer/actions/workflows/ci.yml)
+
 # SVG Sanitizer
 
 **SVG Sanitizer** is a Java library designed to clean SVG files by removing potentially dangerous JavaScript, blocking
@@ -22,7 +24,7 @@ To use the SVG Sanitizer in your Java project, include the following Maven depen
 <dependency>
     <groupId>io.github.borewit</groupId>
     <artifactId>svg-sanitizer</artifactId>
-    <version>1.0.0</version>
+    <version>0.1.0</version>
 </dependency>
 ```
 
@@ -33,7 +35,8 @@ public class Main {
     public static void main(String[] args) {
         String svgContent = "<svg>...</svg>"; // Your SVG content here
         try {
-            String sanitizedSvg = SVGSanitizer.sanitize(svgContent);
+            SVGSanitizer svgSanitizer = new SVGSanitizer();
+            String sanitizedSvg = svgSanitizer.sanitize(svgContent);
             System.out.println("Sanitized SVG: " + sanitizedSvg);
         } catch (Exception e) {
             e.printStackTrace();
