@@ -106,3 +106,19 @@ signing {
     useGpgCmd()
     sign publishing.publications.mavenJava
 }
+
+javadoc {
+    options.addBooleanOption("Xdoclint:none", true)
+    options.addStringOption("Xmaxwarns", "1")
+}
+
+tasks.register('sourcesJar', Jar) {
+    archiveClassifier.set('sources')
+    from sourceSets.main.allSource
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+}
+
+java {
+    withSourcesJar()
+    withJavadocJar()
+}
