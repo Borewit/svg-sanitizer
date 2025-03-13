@@ -2,8 +2,8 @@
 
 # SVG Sanitizer
 
-**SVG Sanitizer** is a Java library designed to clean SVG files by removing potentially dangerous JavaScript, blocking
-external resource loading, and preventing XSS (Cross-Site Scripting) vulnerabilities. It is useful for ensuring that SVG
+**SVG Sanitizer** is a Java library designed to clean [SVG files](https://en.wikipedia.org/wiki/SVG) by removing potentially dangerous JavaScript, blocking
+external resource loading, and preventing [XSS (Cross-Site Scripting)](https://owasp.org/www-community/attacks/xss/) vulnerabilities. It is useful for ensuring that SVG
 files are safe to use in a variety of applications, including web environments.
 
 ## Features
@@ -20,7 +20,6 @@ files are safe to use in a variety of applications, including web environments.
 To use the SVG Sanitizer in your Java project, include the following Maven dependency:
 
 ```xml
-
 <dependency>
     <groupId>io.github.borewit</groupId>
     <artifactId>svg-sanitizer</artifactId>
@@ -29,20 +28,30 @@ To use the SVG Sanitizer in your Java project, include the following Maven depen
 ```
 
 ```java
-import io.github.borewit.sanitize.SVGSanitizer;
-
-public class Main {
-    public static void main(String[] args) {
-        String svgContent = "<svg>...</svg>"; // Your SVG content here
-        try {
-            SVGSanitizer svgSanitizer = new SVGSanitizer();
-            String sanitizedSvg = svgSanitizer.sanitize(svgContent);
-            System.out.println("Sanitized SVG: " + sanitizedSvg);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+public class MyApp {
+  public static void main(String[] args) {
+    String dirtySvgContent = """
+      <svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 124 124" fill="none">
+        <rect width="124" height="124" rx="24" fill="#000000"/>
+          <script type="text/javascript">
+            alert(0x539);
+         </script>
+      </svg>""";
+    try {
+      SVGSanitizer svgSanitizer = new SVGSanitizer();
+      String sanitizedSvg = svgSanitizer.sanitize(dirtySvgContent);
+      System.out.println(sanitizedSvg);
+    } catch (Exception e) {
+      e.printStackTrace();
     }
+  }
 }
+```
+Which will output the sanitized SVG:
+```xml
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" height="400" viewBox="0 0 124 124" width="400">
+    <rect fill="#000000" height="124" rx="24" width="124"/>
+</svg>
 ```
 
 ### Available Methods
