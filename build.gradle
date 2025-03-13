@@ -62,7 +62,7 @@ publishing {
                 licenses {
                     license {
                         name = 'MIT'
-                        url = 'https://github.com/Borewit/svg-sanitizer/blob/main/LICENSE.txt'
+                        url = 'https://github.com/Borewit/svg-sanitizer/blob/master/LICENSE.txt'
                     }
                 }
                 developers {
