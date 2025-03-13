@@ -1,4 +1,6 @@
 [![CI](https://github.com/Borewit/svg-sanitizer/actions/workflows/ci.yml/badge.svg)](https://github.com/Borewit/svg-sanitizer/actions/workflows/ci.yml)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/io.github.borewit/svg-sanitizer/badge.svg)](https://maven-badges.herokuapp.com/maven-central/io.github.borewit/svg-sanitizer)
+[![javadoc](https://javadoc.io/badge2/io.github.borewit/svg-sanitizer/javadoc.svg)](https://javadoc.io/doc/io.github.borewit/svg-sanitizer)
 
 # SVG Sanitizer
 
@@ -8,7 +10,7 @@ files are safe to use in a variety of applications, including web environments.
 
 ## Features
 
-* Removes JavaScript from SVG files, including inline event handlers and <script> tags.
+* Removes JavaScript from SVG files, including inline event handlers and `<script>` tags.
 * Blocks loading of external resources, including href and xlink:href attributes pointing to external URLs.
 * Prevents XSS vulnerabilities by sanitizing dangerous elements and attributes.
 * Can be integrated easily into Java projects as a library.
