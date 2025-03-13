@@ -42,7 +42,7 @@ java {
 }
 
 group = 'io.github.borewit'
-version = '0.1.0'
+version = '0.1.1'
 description = 'SVG Sanitizer'
 java.sourceCompatibility = JavaVersion.VERSION_11
 java.targetCompatibility = JavaVersion.VERSION_11

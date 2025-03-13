@@ -25,7 +25,7 @@ To use the SVG Sanitizer in your Java project, include the following Maven depen
 <dependency>
     <groupId>io.github.borewit</groupId>
     <artifactId>svg-sanitizer</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
 </dependency>
 ```
 
