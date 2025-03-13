@@ -71,10 +71,8 @@ public class CheckSvg {
                     }
 
                     // Detect JavaScript inside <foreignObject>
-                    if ("foreignObject".equals(elementName)) {
-                        if (containsJavaScriptInForeignObject(reader)) {
-                            return true;
-                        }
+                    if ("foreignObject".equals(elementName) && containsJavaScriptInForeignObject(reader)) {
+                        return true;
                     }
                 }
             }
@@ -113,7 +111,7 @@ public class CheckSvg {
                             if (nextEvent.getEventType() == XMLStreamConstants.CHARACTERS) {
                                 styleContent.append(nextEvent.asCharacters().getData());
                             } else if (nextEvent.getEventType() == XMLStreamConstants.END_ELEMENT &&
-                                    "style".equals(nextEvent.asEndElement().getName().getLocalPart().toLowerCase())) {
+                                    "style".equalsIgnoreCase(nextEvent.asEndElement().getName().getLocalPart())) {
                                 break; // End of <style> element
                             }
                         }
@@ -208,10 +206,9 @@ public class CheckSvg {
 
     /**
      * Detects if the given SVG string is trying to load external resources.
-     *
      * It returns true if:
      * - The SVG contains a DOCTYPE declaration with external entity references (SYSTEM or PUBLIC).
-     * - An <image>, <use>, <object>, or <iframe> element has an "href" or "xlink:href" attribute
+     * - An <image>, <use>, <object>, or <iframe> element has an "href" attribute
      *   whose value does not begin with "data:".
      * - A <foreignObject> contains a <script> or an external <object>.
      *
@@ -242,9 +239,10 @@ public class CheckSvg {
         DocumentBuilder builder = factory.newDocumentBuilder();
         Document doc = builder.parse(new ByteArrayInputStream(svgXml.getBytes(StandardCharsets.UTF_8)));
 
-        // 3. Detect external resources in <image>, <use>, <object>, and <iframe>
-        if (hasExternalReferences(doc, "image", "href", "xlink:href") ||
-                hasExternalReferences(doc, "use", "href", "xlink:href") ||
+        // 3. Detect external resources in <image>, <use>, <a>, <object>, and <iframe>
+        if (hasExternalReferences(doc, "image", "href") ||
+                hasExternalReferences(doc, "use", "href") ||
+                hasExternalReferences(doc, "a", "href") ||
                 hasExternalReferences(doc, "object", "data") ||
                 hasExternalReferences(doc, "iframe", "src")) {
             return true;
@@ -263,7 +261,7 @@ public class CheckSvg {
      *
      * @param doc           The parsed XML document.
      * @param tagName       The tag name to check (e.g., "image", "use").
-     * @param attributeKeys The attribute names to check (e.g., "href", "xlink:href").
+     * @param attributeKeys The attribute names to check (e.g., "href", "…").
      * @return true if an external resource is found, false otherwise.
      */
     private static boolean hasExternalReferences(Document doc, String tagName, String... attributeKeys) {
@@ -272,7 +270,7 @@ public class CheckSvg {
             Element element = (Element) elements.item(i);
             for (String attrKey : attributeKeys) {
                 String attrValue = element.getAttribute(attrKey);
-                if (attrValue == null || attrValue.isEmpty()) {
+                if (attrValue.isEmpty()) {
                     attrValue = element.getAttributeNS("http://www.w3.org/1999/xlink", attrKey);
                 }
                 if (isExternalResource(attrValue)) {
@@ -325,5 +323,16 @@ public class CheckSvg {
         }
         url = url.trim().toLowerCase();
         return !(url.startsWith("data:") || url.startsWith("#")); // Allow data URIs and fragment IDs
+    }
+
+    /**
+     * Detects whether an SVG string contains entity definitions.
+     *
+     * @param svgContent The SVG content to scan.
+     * @return true if entity definitions are found, false otherwise.
+     */
+    public static boolean containsExternalEntities(String svgContent) {
+        // Quick text-based check for DOCTYPE.
+        return svgContent.contains("<!DOCTYPE");
     }
 }
