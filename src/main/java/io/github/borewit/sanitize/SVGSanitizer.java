@@ -23,19 +23,18 @@ import javax.xml.stream.events.XMLEvent;
 public class SVGSanitizer {
 
   private static final Set<Integer> UNSAFE_EVENT_TYPES =
-      Set.of(XMLStreamConstants.DTD, XMLStreamConstants.ENTITY_REFERENCE);
+    Set.of(XMLStreamConstants.DTD, XMLStreamConstants.ENTITY_REFERENCE);
 
   private static final Set<String> UNSAFE_ELEMENTS =
-      Set.of("script", "foreignObject", "iframe", "embed", "object", "style");
+    Set.of("script", "foreignObject", "iframe", "embed", "object", "style");
 
   private static final Set<String> UNSAFE_ATTRIBUTES =
-      Set.of("onload", "onclick", "onmouseover", "onerror", "onfocus", "onblur", "onkeydown");
+    Set.of("onload", "onclick", "onmouseover", "onerror", "onfocus", "onblur", "onkeydown");
 
   public String sanitize(String svgContent) throws Exception {
-    try (
-        final ByteArrayInputStream inputStream =
-            new ByteArrayInputStream(svgContent.getBytes(StandardCharsets.UTF_8));
-        final ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+    try (final ByteArrayInputStream inputStream =
+           new ByteArrayInputStream(svgContent.getBytes(StandardCharsets.UTF_8));
+         final ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
       sanitize(inputStream, outputStream);
       return outputStream.toString(StandardCharsets.UTF_8);
     }
@@ -48,29 +47,36 @@ public class SVGSanitizer {
     // Ignore unknown entities
     factory.setProperty(XMLInputFactory.IS_REPLACING_ENTITY_REFERENCES, false);
 
-    final XMLEventReader eventReader = factory.createXMLEventReader(is);
     final XMLOutputFactory outFactory = XMLOutputFactory.newInstance();
-    final XMLEventWriter eventWriter = outFactory.createXMLEventWriter(os);
     final XMLEventFactory eventFactory = XMLEventFactory.newInstance();
 
-    while (eventReader.hasNext()) {
-      final XMLEvent event = eventReader.nextEvent();
-      if (UNSAFE_EVENT_TYPES.contains(event.getEventType())) {
-        continue;
-      }
-      if (!event.isStartElement()) {
-        // Not a start element, write it
-        eventWriter.add(event);
-      } else {
-        // Check if this is the start of an element we want to remove
-        final StartElement startElement = event.asStartElement();
-        if (UNSAFE_ELEMENTS.contains(startElement.getName().getLocalPart())) {
-          skipElementAndChildren(eventReader);
-        } else {
-          // Check attributes and write sanitized element
-          eventWriter.add(getElementWithSanitizedAttributes(startElement, eventFactory));
+    final XMLEventReader eventReader = factory.createXMLEventReader(is);
+    try {
+      final XMLEventWriter eventWriter = outFactory.createXMLEventWriter(os);
+      try {
+        while (eventReader.hasNext()) {
+          final XMLEvent event = eventReader.nextEvent();
+          if (UNSAFE_EVENT_TYPES.contains(event.getEventType())) {
+            continue;
+          }
+          if (!event.isStartElement()) {
+            // Write non-start elements as-is
+            eventWriter.add(event);
+          } else {
+            // Handle start elements
+            final StartElement startElement = event.asStartElement();
+            if (UNSAFE_ELEMENTS.contains(startElement.getName().getLocalPart())) {
+              skipElementAndChildren(eventReader);
+            } else {
+              eventWriter.add(getElementWithSanitizedAttributes(startElement, eventFactory));
+            }
+          }
         }
+      } finally {
+        eventWriter.close();
       }
+    } finally {
+      eventReader.close();
     }
   }
 
@@ -88,7 +94,7 @@ public class SVGSanitizer {
   }
 
   private static StartElement getElementWithSanitizedAttributes(StartElement startElement,
-      XMLEventFactory eventFactory) {
+                                                                XMLEventFactory eventFactory) {
     final Iterator<Attribute> attributes = startElement.getAttributes();
     final List<Attribute> sanitizedAttributes = new ArrayList<>();
     boolean foundOffendingAttributes = false;
@@ -97,18 +103,17 @@ public class SVGSanitizer {
       final String attrName = attr.getName().getLocalPart();
       final String attrValue = attr.getValue().toLowerCase();
       if (UNSAFE_ATTRIBUTES.contains(attrName) || attrValue.startsWith("javascript:")
-          || ("href".equals(attrName) && !attrValue.startsWith("data:"))) {
+        || ("href".equals(attrName) && !attrValue.startsWith("data:"))) {
         foundOffendingAttributes = true;
       } else {
         sanitizedAttributes.add(attr);
       }
     }
     return foundOffendingAttributes
-        // Create a new StartElement without the unwanted attributes
-        ? eventFactory.createStartElement(startElement.getName(), sanitizedAttributes.iterator(),
-            startElement.getNamespaces())
-        // Element was fine
-        : startElement;
+      // Create a new StartElement without the unwanted attributes
+      ? eventFactory.createStartElement(startElement.getName(), sanitizedAttributes.iterator(),
+      startElement.getNamespaces())
+      // Element was fine, return original
+      : startElement;
   }
-
 }
