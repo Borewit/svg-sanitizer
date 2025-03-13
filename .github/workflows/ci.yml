@@ -2,7 +2,10 @@ name: CI
 on: [push]
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     permissions:
       checks: write
     steps:
@@ -19,13 +22,15 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
       - name: Code style check (Spotless)
         run: ./gradlew spotlessCheck
+        shell: bash  # Ensures compatibility on Windows
       - name: Run build with Gradle Wrapper
         run: ./gradlew build
+        shell: bash
       - name: Test Report
         uses: dorny/test-reporter@v1
         if: always()
         with:
-          name: Gradle Tests
+          name: Gradle Tests (${{ matrix.os }})
           path: build/test-results/test/*.xml
           reporter: java-junit
           fail-on-error: true
