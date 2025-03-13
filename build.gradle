@@ -75,9 +75,9 @@ publishing {
                 }
                 contributors {
                     contributor {
-                        name = 'Borewit'
+                        name = 'Gertjan van Oosten'
                         timezone = 'Europe/Amsterdam'
-                        url = 'https://borewit.github.io'
+                        url = 'https://github.com/gjvoosten'
                     }
                 }
                 scm {
