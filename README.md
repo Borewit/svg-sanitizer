@@ -19,15 +19,7 @@ files are safe to use in a variety of applications, including web environments.
 
 ### Maven Dependency
 
-To use the SVG Sanitizer in your Java project, include the following Maven dependency:
-
-```xml
-<dependency>
-    <groupId>io.github.borewit</groupId>
-    <artifactId>svg-sanitizer</artifactId>
-    <version>0.1.1</version>
-</dependency>
-```
+To use the SVG Sanitizer in your Java project, include the [**io.github.borewit:svg-sanitizer** Maven dependency](https://central.sonatype.com/artifact/io.github.borewit/svg-sanitizer).
 
 ```java
 public class MyApp {
