@@ -39,24 +39,6 @@ class SVGSanitizerTest {
     this.svgSanitizer = new SVGSanitizer();
   }
 
-  private String sanitizeSvgToString(String svgFixtureName) throws IOException {
-    try (InputStream inputStream = this.getFixture(svgFixtureName);
-         ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-
-      assertNotNull(inputStream, String.format("Test file \"%s\" should exist in resources", svgFixtureName));
-
-      try {
-        // Run the sanitizer
-        this.svgSanitizer.sanitize(inputStream, outputStream);
-      } catch (Exception exception) {
-        fail(String.format("Sanitizing file \"%s\"", svgFixtureName), exception);
-      }
-
-      // Convert output to string for verification
-      return outputStream.toString(StandardCharsets.UTF_8);
-    }
-  }
-
   @ParameterizedTest
   @DisplayName("Sanitize JavaScript code in SVG")
   @ValueSource(strings = {
