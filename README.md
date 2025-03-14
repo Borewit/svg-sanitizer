@@ -1,5 +1,5 @@
 [![CI](https://github.com/Borewit/svg-sanitizer/actions/workflows/ci.yml/badge.svg)](https://github.com/Borewit/svg-sanitizer/actions/workflows/ci.yml)
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/io.github.borewit/svg-sanitizer/badge.svg)](https://maven-badges.herokuapp.com/maven-central/io.github.borewit/svg-sanitizer)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.borewit/svg-sanitizer)](https://central.sonatype.com/artifact/io.github.borewit/svg-sanitizer)
 [![javadoc](https://javadoc.io/badge2/io.github.borewit/svg-sanitizer/javadoc.svg)](https://javadoc.io/doc/io.github.borewit/svg-sanitizer)
 
 # SVG Sanitizer
