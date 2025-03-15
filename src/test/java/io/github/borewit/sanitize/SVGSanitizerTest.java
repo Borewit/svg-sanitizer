@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.borewit.sanitize.util.CheckSvg;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -20,8 +21,6 @@ class SVGSanitizerTest {
   private static final String RESOURCE_SVG_PATH = "/";
   private static final String SANITIZED_PATH = "build/sanitized";
 
-  private SVGSanitizer svgSanitizer;
-
   @BeforeEach
   void setup() throws Exception {
     // Ensure the target directory exists
@@ -31,8 +30,6 @@ class SVGSanitizerTest {
     try (InputStream inputStream = getClass().getResourceAsStream(RESOURCE_SVG_PATH)) {
       assertNotNull(inputStream, "Test SVG file should exist in resources");
     }
-
-    this.svgSanitizer = new SVGSanitizer();
   }
 
   @ParameterizedTest
@@ -63,7 +60,7 @@ class SVGSanitizerTest {
         CheckSvg.containsJavaScript(dirtySvg),
         String.format("Dirty \"%s\" should contain JavaScript", svgTestFile));
 
-    String sanitizedSvg = this.svgSanitizer.sanitize(dirtySvg);
+    String sanitizedSvg = SVGSanitizer.sanitize(dirtySvg);
 
     // Save sanitized SVG for debugging
     saveSvg(sanitizedSvg, svgTestFile);
@@ -83,7 +80,7 @@ class SVGSanitizerTest {
         CheckSvg.containsJavaScriptInStyle(dirtySvg),
         String.format("Dirty \"%s\" should contain JavaScript", svgTestFile));
 
-    String sanitizedSvg = this.svgSanitizer.sanitize(dirtySvg);
+    String sanitizedSvg = SVGSanitizer.sanitize(dirtySvg);
 
     // Save sanitized SVG for debugging
     saveSvg(sanitizedSvg, svgTestFile);
@@ -115,7 +112,7 @@ class SVGSanitizerTest {
         CheckSvg.containsExternalResources(dirtySvg),
         String.format("Dirty \"%s\" should contain an external resource", svgTestFile));
 
-    String sanitizedSvg = new SVGSanitizer().sanitize(dirtySvg);
+    String sanitizedSvg = SVGSanitizer.sanitize(dirtySvg);
 
     // Save sanitized SVG for debugging
     saveSvg(sanitizedSvg, svgTestFile);
@@ -135,7 +132,7 @@ class SVGSanitizerTest {
         CheckSvg.containsExternalEntities(dirtySvg),
         String.format("Dirty \"%s\" should contain entity definitions", svgTestFile));
 
-    String sanitizedSvg = new SVGSanitizer().sanitize(dirtySvg);
+    String sanitizedSvg = SVGSanitizer.sanitize(dirtySvg);
 
     // Save sanitized SVG for debugging
     saveSvg(sanitizedSvg, svgTestFile);
@@ -156,6 +153,49 @@ class SVGSanitizerTest {
     try (InputStream inputStream = this.getFixture(fixtureName)) {
       return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
     }
+  }
+
+  @ParameterizedTest
+  @DisplayName("Sanitize from InputStream to InputStream")
+  @ValueSource(
+      strings = {
+        "form-action3.svg",
+        "javascriptalert.svg",
+        "svg.svg",
+        "SVG-alert.svg",
+        "SVG-alert-eicar.svg",
+        "SVG-alertv2(1).svg",
+        "SVG-alertv2.svg",
+        "recursive-foreignobject.svg",
+        "test(1).svg",
+        "test.svg",
+        "test2(1).svg",
+        "test2.svg",
+        "circleWithS.svg",
+        "externalimage.svg",
+        "externalimage2.svg",
+        "recursive-foreignobject.svg",
+        "test(2).svg",
+        "test(3).svg",
+        "test(4).svg",
+        "test-href-javascript.svg",
+        "test-href-javascript2.svg",
+        "test-href-javascript3.svg"
+      })
+  void sanitizeToInputStream(String svgTestFile) throws Exception {
+    String sanitizedSvg;
+    try (InputStream inputStream = SVGSanitizer.sanitize(this.getFixture(svgTestFile))) {
+      ByteArrayOutputStream result = new ByteArrayOutputStream();
+      byte[] buffer = new byte[1024];
+      for (int length; (length = inputStream.read(buffer)) != -1; ) {
+        result.write(buffer, 0, length);
+      }
+      // StandardCharsets.UTF_8.name() > JDK 7
+      sanitizedSvg = result.toString("UTF-8");
+    }
+    assertFalse(
+        CheckSvg.containsExternalEntities(sanitizedSvg),
+        String.format("Sanitized \"%s\" should not contain entity definitions", svgTestFile));
   }
 
   /** Saves the sanitized SVG file to `build/sanitized/` for debugging. */

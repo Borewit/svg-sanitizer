@@ -1,9 +1,6 @@
 package io.github.borewit.sanitize;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -20,6 +17,18 @@ import javax.xml.stream.events.Attribute;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 
+/**
+ * Utility class for sanitizing SVG content to remove potentially unsafe elements and attributes
+ * that may lead to XSS vulnerabilities.
+ *
+ * <p>This class provides methods to sanitize SVG content from various inputs such as a {@code
+ * String} or an {@code InputStream} and output the sanitized version. It utilizes the StAX
+ * (Streaming API for XML) for efficient processing.
+ *
+ * <p>The sanitizer filters out unsafe XML event types, elements (e.g., {@code script}, {@code
+ * foreignObject}, {@code iframe}, {@code embed}, {@code object}, {@code style}), and attributes
+ * (e.g., {@code onclick}, {@code onload}, etc.) that could be used to inject malicious code.
+ */
 public class SVGSanitizer {
 
   private static final Set<Integer> UNSAFE_EVENT_TYPES =
@@ -31,7 +40,14 @@ public class SVGSanitizer {
   private static final Set<String> UNSAFE_ATTRIBUTES =
       Set.of("onload", "onclick", "onmouseover", "onerror", "onfocus", "onblur", "onkeydown");
 
-  public String sanitize(String svgContent) throws Exception {
+  /**
+   * Sanitizes the given SVG content string by removing unsafe elements and attributes.
+   *
+   * @param svgContent the SVG content as a {@code String}
+   * @return a sanitized version of the SVG content
+   * @throws Exception if an error occurs during the sanitization process
+   */
+  public static String sanitize(String svgContent) throws Exception {
     try (final ByteArrayInputStream inputStream =
             new ByteArrayInputStream(svgContent.getBytes(StandardCharsets.UTF_8));
         final ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
@@ -40,6 +56,62 @@ public class SVGSanitizer {
     }
   }
 
+  /**
+   * Sanitizes the SVG content provided by the given {@code InputStream} and returns an {@code
+   * InputStream} with the sanitized output.
+   *
+   * <p><strong>Note:</strong> This implementation uses piped streams to achieve streaming behavior.
+   *
+   * @param is the input {@code InputStream} containing the SVG content
+   * @return an {@code InputStream} from which the sanitized SVG content can be read
+   * @throws Exception if an error occurs during the sanitization process
+   */
+  public static InputStream sanitize(InputStream is) throws Exception {
+    final PipedOutputStream pos = new PipedOutputStream();
+    final PipedInputStream pis = new PipedInputStream(pos);
+
+    new Thread(
+            () -> {
+              try {
+                sanitize(is, pos);
+              } catch (Exception e) {
+                throw new RuntimeException(e);
+              } finally {
+                try {
+                  pos.close();
+                } catch (IOException e) {
+                  // Ignore
+                }
+              }
+            })
+        .start();
+
+    // Return a wrapper stream that ensures that when the caller closes it,
+    // the given input stream is closed (even if the background thread hasn't finished).
+    return new FilterInputStream(pis) {
+      @Override
+      public void close() throws IOException {
+        super.close(); // closes the underlying PipedInputStream
+        try {
+          is.close();
+        } catch (IOException ex) {
+          // Ignore
+        }
+      }
+    };
+  }
+
+  /**
+   * Sanitizes SVG content by reading from the provided {@code InputStream} and writing the
+   * sanitized output to the provided {@code OutputStream}.
+   *
+   * <p>This method filters out unsafe XML event types, elements, and attributes to help prevent XSS
+   * vulnerabilities.
+   *
+   * @param is the input {@code InputStream} containing the SVG content
+   * @param os the output {@code OutputStream} to which the sanitized SVG content will be written
+   * @throws Exception if an error occurs during XML processing or sanitization
+   */
   public static void sanitize(InputStream is, OutputStream os) throws Exception {
     final XMLInputFactory factory = XMLInputFactory.newInstance();
     // Disable DTDs entirely for the factory
@@ -80,6 +152,14 @@ public class SVGSanitizer {
     }
   }
 
+  /**
+   * Skips the current element and all its child elements in the XML event stream.
+   *
+   * <p>This method is used to bypass unsafe elements and their contents.
+   *
+   * @param eventReader the {@code XMLEventReader} from which events are being read
+   * @throws XMLStreamException if an error occurs while reading the XML events
+   */
   private static void skipElementAndChildren(XMLEventReader eventReader) throws XMLStreamException {
     // Skip this element and all its children by tracking depth
     int depth = 1;
@@ -93,6 +173,18 @@ public class SVGSanitizer {
     }
   }
 
+  /**
+   * Returns a sanitized version of the given start element by filtering out unsafe attributes.
+   *
+   * <p>Unsafe attributes include those that may contain event handlers (e.g., {@code onclick}) or
+   * potentially dangerous values (e.g., JavaScript URLs). If any unsafe attribute is found, the
+   * method creates a new start element without those attributes.
+   *
+   * @param startElement the original {@code StartElement} to sanitize
+   * @param eventFactory the {@code XMLEventFactory} used to create new XML events
+   * @return a {@code StartElement} with only safe attributes, or the original element if no unsafe
+   *     attributes were found
+   */
   private static StartElement getElementWithSanitizedAttributes(
       StartElement startElement, XMLEventFactory eventFactory) {
     final Iterator<Attribute> attributes = startElement.getAttributes();
