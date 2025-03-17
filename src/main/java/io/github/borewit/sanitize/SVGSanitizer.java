@@ -23,18 +23,18 @@ import javax.xml.stream.events.XMLEvent;
 public class SVGSanitizer {
 
   private static final Set<Integer> UNSAFE_EVENT_TYPES =
-    Set.of(XMLStreamConstants.DTD, XMLStreamConstants.ENTITY_REFERENCE);
+      Set.of(XMLStreamConstants.DTD, XMLStreamConstants.ENTITY_REFERENCE);
 
   private static final Set<String> UNSAFE_ELEMENTS =
-    Set.of("script", "foreignObject", "iframe", "embed", "object", "style");
+      Set.of("script", "foreignObject", "iframe", "embed", "object", "style");
 
   private static final Set<String> UNSAFE_ATTRIBUTES =
-    Set.of("onload", "onclick", "onmouseover", "onerror", "onfocus", "onblur", "onkeydown");
+      Set.of("onload", "onclick", "onmouseover", "onerror", "onfocus", "onblur", "onkeydown");
 
   public String sanitize(String svgContent) throws Exception {
     try (final ByteArrayInputStream inputStream =
-           new ByteArrayInputStream(svgContent.getBytes(StandardCharsets.UTF_8));
-         final ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            new ByteArrayInputStream(svgContent.getBytes(StandardCharsets.UTF_8));
+        final ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
       sanitize(inputStream, outputStream);
       return outputStream.toString(StandardCharsets.UTF_8);
     }
@@ -93,8 +93,8 @@ public class SVGSanitizer {
     }
   }
 
-  private static StartElement getElementWithSanitizedAttributes(StartElement startElement,
-                                                                XMLEventFactory eventFactory) {
+  private static StartElement getElementWithSanitizedAttributes(
+      StartElement startElement, XMLEventFactory eventFactory) {
     final Iterator<Attribute> attributes = startElement.getAttributes();
     final List<Attribute> sanitizedAttributes = new ArrayList<>();
     boolean foundOffendingAttributes = false;
@@ -102,18 +102,19 @@ public class SVGSanitizer {
       final Attribute attr = attributes.next();
       final String attrName = attr.getName().getLocalPart();
       final String attrValue = attr.getValue().toLowerCase();
-      if (UNSAFE_ATTRIBUTES.contains(attrName) || attrValue.startsWith("javascript:")
-        || ("href".equals(attrName) && !attrValue.startsWith("data:"))) {
+      if (UNSAFE_ATTRIBUTES.contains(attrName)
+          || attrValue.startsWith("javascript:")
+          || ("href".equals(attrName) && !attrValue.startsWith("data:"))) {
         foundOffendingAttributes = true;
       } else {
         sanitizedAttributes.add(attr);
       }
     }
     return foundOffendingAttributes
-      // Create a new StartElement without the unwanted attributes
-      ? eventFactory.createStartElement(startElement.getName(), sanitizedAttributes.iterator(),
-      startElement.getNamespaces())
-      // Element was fine, return original
-      : startElement;
+        // Create a new StartElement without the unwanted attributes
+        ? eventFactory.createStartElement(
+            startElement.getName(), sanitizedAttributes.iterator(), startElement.getNamespaces())
+        // Element was fine, return original
+        : startElement;
   }
 }
