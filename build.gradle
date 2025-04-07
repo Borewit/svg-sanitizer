@@ -110,9 +110,11 @@ publishing {
     }
 }
 
-signing {
-    useGpgCmd()
-    sign publishing.publications.mavenJava
+if (!project.hasProperty('skip.signing')) {
+    signing {
+        useGpgCmd()
+        sign publishing.publications.mavenJava
+    }
 }
 
 javadoc {
