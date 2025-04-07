@@ -217,9 +217,6 @@ public class CheckSvg {
    *
    * @param svgXml The SVG content as a string.
    * @return true if external resource loading is detected, false otherwise.
-   * @throws ParserConfigurationException
-   * @throws IOException
-   * @throws SAXException
    */
   public static boolean containsExternalResources(String svgXml)
       throws ParserConfigurationException, IOException, SAXException {
@@ -231,16 +228,7 @@ public class CheckSvg {
     }
 
     // 2. Secure XML parsing setup
-    DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-    factory.setNamespaceAware(true);
-    // Prevent external DTDs/entities from being loaded:
-    factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-    factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-    factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-    factory.setXIncludeAware(false);
-
-    DocumentBuilder builder = factory.newDocumentBuilder();
-    Document doc = builder.parse(new ByteArrayInputStream(svgXml.getBytes(StandardCharsets.UTF_8)));
+    Document doc = toXmlDocument(svgXml);
 
     // 3. Detect external resources in <image>, <use>, <a>, <object>, and <iframe>
     if (hasExternalReferences(doc, "image", "href")
@@ -252,11 +240,32 @@ public class CheckSvg {
     }
 
     // 4. Detect external references in <foreignObject>
-    if (containsExternalForeignObject(doc)) {
-      return true;
-    }
+    return containsExternalForeignObject(doc);
+  }
 
-    return false;
+  public static boolean hasInternalReferences(String svgXml)
+      throws ParserConfigurationException, IOException, SAXException {
+    Document doc = toXmlDocument(svgXml);
+    return hasInternalReferences(doc, "image", "href")
+        || hasInternalReferences(doc, "use", "href")
+        || hasInternalReferences(doc, "a", "href")
+        || hasInternalReferences(doc, "object", "data")
+        || hasInternalReferences(doc, "iframe", "src");
+  }
+
+  private static Document toXmlDocument(String svgXml)
+      throws ParserConfigurationException, IOException, SAXException {
+    // 2. Secure XML parsing setup
+    DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+    factory.setNamespaceAware(true);
+    // Prevent external DTDs/entities from being loaded:
+    factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+    factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+    factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+    factory.setXIncludeAware(false);
+
+    DocumentBuilder builder = factory.newDocumentBuilder();
+    return builder.parse(new ByteArrayInputStream(svgXml.getBytes(StandardCharsets.UTF_8)));
   }
 
   /**
@@ -269,6 +278,32 @@ public class CheckSvg {
    */
   private static boolean hasExternalReferences(
       Document doc, String tagName, String... attributeKeys) {
+    return hasReferences(doc, tagName, false, attributeKeys);
+  }
+
+  /**
+   * Checks if the given tag name contains an internal reference in any of its specified attributes.
+   *
+   * @param doc The parsed XML document.
+   * @param tagName The tag name to check (e.g., "image", "use").
+   * @param attributeKeys The attribute names to check (e.g., "href", "…").
+   * @return true if an external resource is found, false otherwise.
+   */
+  private static boolean hasInternalReferences(
+      Document doc, String tagName, String... attributeKeys) {
+    return hasReferences(doc, tagName, true, attributeKeys);
+  }
+
+  /**
+   * Checks if the given tag name contains an external reference in any of its specified attributes.
+   *
+   * @param doc The parsed XML document.
+   * @param tagName The tag name to check (e.g., "image", "use").
+   * @param attributeKeys The attribute names to check (e.g., "href", "…").
+   * @return true if an external resource is found, false otherwise.
+   */
+  private static boolean hasReferences(
+      Document doc, String tagName, boolean internal, String... attributeKeys) {
     NodeList elements = doc.getElementsByTagName(tagName);
     for (int i = 0; i < elements.getLength(); i++) {
       Element element = (Element) elements.item(i);
@@ -277,7 +312,7 @@ public class CheckSvg {
         if (attrValue.isEmpty()) {
           attrValue = element.getAttributeNS("http://www.w3.org/1999/xlink", attrKey);
         }
-        if (isExternalResource(attrValue)) {
+        if (!attrValue.isEmpty() && internal != isExternalResource(attrValue)) {
           return true;
         }
       }

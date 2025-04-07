@@ -196,7 +196,9 @@ public class SVGSanitizer {
       final String attrValue = attr.getValue().toLowerCase();
       if (UNSAFE_ATTRIBUTES.contains(attrName)
           || attrValue.startsWith("javascript:")
-          || ("href".equals(attrName) && !attrValue.startsWith("data:"))) {
+          || ("href".equals(attrName)
+              && !attrValue.startsWith("data:")
+              && !attrValue.startsWith("#"))) {
         foundOffendingAttributes = true;
       } else {
         sanitizedAttributes.add(attr);
