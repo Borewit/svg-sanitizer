@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -122,6 +123,28 @@ class SVGSanitizerTest {
         String.format("Sanitized \"%s\" should not contain an external resource", svgTestFile));
   }
 
+  @Test
+  @DisplayName("Preserve local anchor xlink:href")
+  void preserveLocalAnchorXLinkHref() throws Exception {
+    String svgTestFile = "Flag_of_the_United_States.svg";
+    // Convert output to string for verification
+    String dirtySvg = this.getFixtureAsString(svgTestFile);
+    assertTrue(
+        CheckSvg.hasInternalReferences(dirtySvg),
+        String.format("Dirty \"%s\" should contain internal references", svgTestFile));
+
+    String sanitizedSvg = SVGSanitizer.sanitize(dirtySvg);
+
+    // Save sanitized SVG for debugging
+    saveSvg(sanitizedSvg, svgTestFile);
+
+    assertTrue(
+        CheckSvg.hasInternalReferences(sanitizedSvg),
+        String.format(
+            "Dirty \"%s\" should still contain internal references after sanitization",
+            svgTestFile));
+  }
+
   @ParameterizedTest
   @DisplayName("Sanitize entity references")
   @ValueSource(strings = {"billionlaughs.svg"})
@@ -191,7 +214,7 @@ class SVGSanitizerTest {
         result.write(buffer, 0, length);
       }
       // StandardCharsets.UTF_8.name() > JDK 7
-      sanitizedSvg = result.toString("UTF-8");
+      sanitizedSvg = result.toString(StandardCharsets.UTF_8);
     }
     assertFalse(
         CheckSvg.containsExternalEntities(sanitizedSvg),
