@@ -146,7 +146,7 @@ public class SVGSanitizer {
           } else {
             // Handle start elements
             final StartElement startElement = event.asStartElement();
-            final String localElementName = startElement.getName().getLocalPart();
+            final String localElementName = startElement.getName().getLocalPart().toLowerCase();
             if (UNSAFE_ELEMENTS.contains(localElementName)) {
               skipElementAndChildren(eventReader);
             } else if ("style".equals(localElementName)) {
@@ -187,7 +187,8 @@ public class SVGSanitizer {
     StringBuilder styleContent = new StringBuilder();
     while (eventReader.hasNext()) {
       XMLEvent event = eventReader.nextEvent();
-      if (event.isEndElement() && "style".equals(event.asEndElement().getName().getLocalPart())) {
+      if (event.isEndElement()
+          && "style".equalsIgnoreCase(event.asEndElement().getName().getLocalPart())) {
         break;
       } else if (event.isCharacters()) {
         styleContent.append(event.asCharacters().getData());

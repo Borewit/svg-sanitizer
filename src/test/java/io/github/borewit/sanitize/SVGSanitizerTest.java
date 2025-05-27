@@ -41,6 +41,7 @@ class SVGSanitizerTest {
         "circleBlinkJS.svg",
         "eicar.svg",
         "form-action.svg",
+        "form-action-case.svg",
         "form-action3.svg",
         "javascriptalert.svg",
         "svg.svg",
@@ -73,7 +74,7 @@ class SVGSanitizerTest {
 
   @ParameterizedTest
   @DisplayName("Sanitize JavaScript embedded in style")
-  @ValueSource(strings = {"form-action2.svg"})
+  @ValueSource(strings = {"form-action2.svg", "form-action2-case.svg"})
   void sanitizeJavaScriptInStyle(String svgTestFile) throws Exception {
     // Convert output to string for verification
     String dirtySvg = this.getFixtureAsString(svgTestFile);
