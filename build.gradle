@@ -1,41 +1,41 @@
 plugins {
-    // Apply the application plugin to add support for building a CLI application in Java.
-    id 'java-library'
-    id 'maven-publish'
-    id 'signing'
-    id 'com.diffplug.spotless' version "7.0.3"
+  // Apply the application plugin to add support for building a CLI application in Java.
+  id 'java-library'
+  id 'maven-publish'
+  id 'signing'
+  id 'com.diffplug.spotless' version '7.0.3'
+  id 'org.jreleaser' version '1.18.0'
 }
 
 apply plugin: 'maven-publish'
 
 repositories {
-    // Use Maven Central for resolving dependencies.
-    mavenCentral()
+  // Use Maven Central for resolving dependencies.
+  mavenCentral()
 }
 
 dependencies {
 }
 
 testing {
-    suites {
-        // Configure the built-in test suite
-        test {
-            // Use JUnit Jupiter test framework
-            useJUnitJupiter('5.10.3')
-        }
+  suites {
+    // Configure the built-in test suite
+    test {
+      // Use JUnit Jupiter test framework
+      useJUnitJupiter('5.10.3')
     }
+  }
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
 java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
-    }
+  toolchain {
+    languageVersion = JavaLanguageVersion.of(17)
+  }
 }
 
-
 group = 'io.github.borewit'
-version = '0.2.1'
+version = '0.3.0'
 description = 'SVG Sanitizer'
 java.sourceCompatibility = JavaVersion.VERSION_11
 java.targetCompatibility = JavaVersion.VERSION_11
@@ -58,77 +58,109 @@ spotless {
   }
 }
 
-publishing {
-    publications {
-
-        mavenJava(MavenPublication) {
-            from(components.java)
-            pom {
-                name = 'SVG-Sanitizer'
-                description = 'A Java library for sanitizing SVG files by removing JavaScript, blocking external resources, and preventing XSS vulnerabilities.'
-                url = 'https://github.com/Borewit/svg-sanitizer'
-                licenses {
-                    license {
-                        name = 'MIT'
-                        url = 'https://github.com/Borewit/svg-sanitizer/blob/master/LICENSE.txt'
-                    }
-                }
-                developers {
-                    developer {
-                        id = 'Borewit'
-                        name = 'Borewit'
-                        timezone = 'Europe/Amsterdam'
-                        url = 'https://borewit.github.io'
-                    }
-                }
-                contributors {
-                    contributor {
-                        name = 'Gertjan van Oosten'
-                        timezone = 'Europe/Amsterdam'
-                        url = 'https://github.com/gjvoosten'
-                    }
-                }
-                scm {
-                    connection = 'scm:git:https://github.com/Borewit/svg-sanitizer.git'
-                    url = 'https://github.com/Borewit/svg-sanitizer'
-                }
-            }
-        }
-    }
-    repositories {
-        maven {
-            name = "OSSRH"
-            def releasesRepoUrl = 'https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/'
-            def snapshotsRepoUrl = 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
-            url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
-
-            credentials {
-                username = ossrhUsername
-                password = ossrhPassword
-            }
-        }
-    }
-}
-
-if (!project.hasProperty('skip.signing')) {
-    signing {
-        useGpgCmd()
-        sign publishing.publications.mavenJava
-    }
-}
-
 javadoc {
-    options.addBooleanOption("Xdoclint:none", true)
-    options.addStringOption("Xmaxwarns", "1")
+  options.addBooleanOption("Xdoclint:none", true)
+  options.addStringOption("Xmaxwarns", "1")
 }
 
 tasks.register('sourcesJar', Jar) {
-    archiveClassifier.set('sources')
-    from sourceSets.main.allSource
-    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+  archiveClassifier.set('sources')
+  from(sourceSets.main.allSource)
 }
 
-java {
-    withSourcesJar()
-    withJavadocJar()
+tasks.register('javadocJar', Jar) {
+  archiveClassifier.set('javadoc')
+  from(tasks.named('javadoc'))
 }
+
+publishing {
+  publications {
+
+    mavenJava(MavenPublication) {
+      from(components.java)
+
+      artifact(tasks.named('sourcesJar'))
+      artifact(tasks.named('javadocJar'))
+
+      pom {
+        name = 'SVG-Sanitizer'
+        description = 'A Java library for sanitizing SVG files by removing JavaScript, blocking external resources, and preventing XSS vulnerabilities.'
+        url = 'https://github.com/Borewit/svg-sanitizer'
+        licenses {
+          license {
+            name = 'MIT'
+            url = 'https://github.com/Borewit/svg-sanitizer/blob/master/LICENSE.txt'
+          }
+        }
+        developers {
+          developer {
+            id = 'Borewit'
+            name = 'Borewit'
+            timezone = 'Europe/Amsterdam'
+            url = 'https://borewit.github.io'
+          }
+        }
+        contributors {
+          contributor {
+            name = 'Gertjan van Oosten'
+            timezone = 'Europe/Amsterdam'
+            url = 'https://github.com/gjvoosten'
+          }
+        }
+        scm {
+          connection = 'scm:git:https://github.com/Borewit/svg-sanitizer.git'
+          url = 'https://github.com/Borewit/svg-sanitizer'
+        }
+      }
+    }
+
+  }
+  repositories {
+    maven {
+      name = "PreDeploy"
+      url = uri(layout.buildDirectory.dir("pre-deploy"))
+    }
+  }
+}
+
+if (!project.hasProperty('skip.signing')) {
+  signing {
+    setRequired {
+      gradle.taskGraph.allTasks.any { it.name.contains("LocalMavenWithChecksums") }
+    }
+    sign publishing.publications.mavenJava
+  }
+}
+
+jreleaser {
+  project {
+    copyright = 'Borewit'
+    description = 'A Java library for sanitizing SVG files by removing JavaScript, blocking external resources, and preventing XSS vulnerabilities.'
+  }
+  signing {
+    active = 'ALWAYS'
+    armored = true
+    mode = 'FILE'
+    publicKey = findProperty("signing.publicKeyFile")
+    secretKey = findProperty("signing.privateKeyFile")
+  }
+  deploy {
+    maven {
+      mavenCentral {
+        sonatype {
+          active = 'ALWAYS'
+          url = 'https://central.sonatype.com/api/v1/publisher'
+          username = findProperty("ossrhUsername") ?: System.getenv("OSSRH_USERNAME")
+          password = findProperty("ossrhPassword") ?: System.getenv("OSSRH_PASSWORD")
+          stagingRepository('build/pre-deploy')
+        }
+      }
+    }
+  }
+  release {
+    github {
+      enabled = false
+    }
+  }
+}
+
