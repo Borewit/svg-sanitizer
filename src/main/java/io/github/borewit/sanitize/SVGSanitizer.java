@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import javax.xml.namespace.QName;
 import javax.xml.stream.XMLEventFactory;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLEventWriter;
@@ -21,6 +22,7 @@ import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.events.Attribute;
+import javax.xml.stream.events.Namespace;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 
@@ -42,7 +44,7 @@ public class SVGSanitizer {
       Set.of(XMLStreamConstants.DTD, XMLStreamConstants.ENTITY_REFERENCE);
 
   private static final Set<String> UNSAFE_ELEMENTS =
-      Set.of("script", "foreignObject", "iframe", "embed", "object", "style");
+      Set.of("script", "foreignObject", "iframe", "embed", "object");
 
   private static final Set<String> UNSAFE_ATTRIBUTES =
       Set.of("onload", "onclick", "onmouseover", "onerror", "onfocus", "onblur", "onkeydown");
@@ -144,8 +146,11 @@ public class SVGSanitizer {
           } else {
             // Handle start elements
             final StartElement startElement = event.asStartElement();
-            if (UNSAFE_ELEMENTS.contains(startElement.getName().getLocalPart())) {
+            final String localElementName = startElement.getName().getLocalPart();
+            if (UNSAFE_ELEMENTS.contains(localElementName)) {
               skipElementAndChildren(eventReader);
+            } else if ("style".equals(localElementName)) {
+              filterStyle(eventWriter, startElement, eventReader);
             } else {
               eventWriter.add(getElementWithSanitizedAttributes(startElement, eventFactory));
             }
@@ -157,6 +162,93 @@ public class SVGSanitizer {
     } finally {
       eventReader.close();
     }
+  }
+
+  public static void filterStyle(
+      XMLEventWriter eventWriter, StartElement startElement, XMLEventReader eventReader)
+      throws XMLStreamException {
+    final XMLEventFactory eventFactory = XMLEventFactory.newInstance();
+
+    // Sanitize attributes and preserve namespace
+    QName elementName = startElement.getName();
+    Iterator<Attribute> sanitizedAttributes = sanitizeAttributes(startElement.getAttributes());
+    Iterator<Namespace> namespaces = startElement.getNamespaces();
+
+    // Write <style> start tag
+    eventWriter.add(
+        eventFactory.createStartElement(
+            elementName.getPrefix(),
+            elementName.getNamespaceURI(),
+            elementName.getLocalPart(),
+            sanitizedAttributes,
+            namespaces));
+
+    // Accumulate text inside <style> block
+    StringBuilder styleContent = new StringBuilder();
+    while (eventReader.hasNext()) {
+      XMLEvent event = eventReader.nextEvent();
+      if (event.isEndElement() && "style".equals(event.asEndElement().getName().getLocalPart())) {
+        break;
+      } else if (event.isCharacters()) {
+        styleContent.append(event.asCharacters().getData());
+      }
+    }
+
+    // Sanitize the CSS and write it
+    String cleanedStyle = sanitizeCss(styleContent.toString());
+    eventWriter.add(eventFactory.createCharacters(cleanedStyle));
+
+    // Close </style> tag
+    eventWriter.add(
+        eventFactory.createEndElement(
+            elementName.getPrefix(), elementName.getNamespaceURI(), elementName.getLocalPart()));
+  }
+
+  private static Iterator<Attribute> sanitizeAttributes(Iterator<Attribute> attributes) {
+    List<Attribute> safeAttributes = new ArrayList<>();
+    while (attributes.hasNext()) {
+      Attribute attr = attributes.next();
+      String name = attr.getName().getLocalPart().toLowerCase();
+      if (!name.startsWith("on") && !"style".equals(name)) {
+        safeAttributes.add(attr);
+      }
+    }
+    return safeAttributes.iterator();
+  }
+
+  private static String sanitizeCss(String css) {
+    // Decode encoded HTML entities like &lt;iframe&gt;
+    String decoded = decodeHtmlEntities(css);
+
+    // Now apply filtering to the decoded version
+    // remove any remaining angle brackets
+
+    return decoded
+        .replaceAll("(?i)expression\\s*\\(", "")
+        .replaceAll("(?i)javascript\\s*:", "")
+        .replaceAll("(?i)url\\s*\\(\\s*['\"]?javascript:[^)]*\\)", "")
+        .replaceAll("(?i)@import\\s+url\\([^)]*\\)", "")
+        .replaceAll("(?i)srcdoc\\s*=", "")
+        .replaceAll("(?i)<\\s*(script|iframe|textarea)[^>]*>", "")
+        .replaceAll("<", "") // remove any remaining angle brackets
+        .replaceAll(">", "");
+  }
+
+  /**
+   * Decodes HTML entities like &lt;, &gt;, &amp;, &quot; into their respective characters.
+   *
+   * @param encoded The encoded string.
+   * @return Decoded string.
+   */
+  public static String decodeHtmlEntities(String encoded) {
+    return encoded
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&amp;", "&")
+        .replace("&quot;", "\"")
+        .replace("&#x27;", "'")
+        .replace("&#39;", "'")
+        .replace("&#x2F;", "/");
   }
 
   /**

@@ -229,4 +229,26 @@ class SVGSanitizerTest {
     String outputPath = SANITIZED_PATH + "/" + sanitizedFilename;
     Files.writeString(Paths.get(outputPath), sanitizedSvg);
   }
+
+  @Test
+  @DisplayName("Preserve style element")
+  void preserveStyleElement() throws Exception {
+    String svgTestFile = "style.svg";
+
+    // Convert output to string for verification
+    String dirtySvg = this.getFixtureAsString(svgTestFile);
+
+    assertTrue(
+        CheckSvg.containsStyleElement(dirtySvg),
+        String.format("Test SVG \"%s\" contain a style element", svgTestFile));
+
+    String sanitizedSvg = SVGSanitizer.sanitize(dirtySvg);
+
+    // Save sanitized SVG for debugging
+    saveSvg(sanitizedSvg, svgTestFile);
+
+    assertTrue(
+        CheckSvg.containsStyleElement(sanitizedSvg),
+        String.format("Sanitized SVG \"%s\" contain a style element", svgTestFile));
+  }
 }

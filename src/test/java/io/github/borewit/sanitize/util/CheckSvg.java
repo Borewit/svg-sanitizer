@@ -1,10 +1,11 @@
 package io.github.borewit.sanitize.util;
 
+import static io.github.borewit.sanitize.SVGSanitizer.decodeHtmlEntities;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -24,6 +25,33 @@ import org.xml.sax.SAXException;
 public class CheckSvg {
 
   private static final Pattern JAVASCRIPT_URI_PATTERN = Pattern.compile("(?i)^\\s*javascript:.*");
+
+  public static boolean containsStyleElement(String svgContent)
+      throws IOException, XMLStreamException {
+    XMLInputFactory factory = XMLInputFactory.newFactory();
+    factory.setProperty(XMLInputFactory.SUPPORT_DTD, false); // Prevent DTD processing
+    factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
+
+    try (ByteArrayInputStream inputStream =
+        new ByteArrayInputStream(svgContent.getBytes(StandardCharsets.UTF_8))) {
+      XMLEventReader reader = factory.createXMLEventReader(inputStream);
+
+      while (reader.hasNext()) {
+        XMLEvent event = reader.nextEvent();
+
+        if (event.getEventType() == XMLStreamConstants.START_ELEMENT) {
+          StartElement startElement = event.asStartElement();
+          String elementName = startElement.getName().getLocalPart().toLowerCase();
+
+          // Detect <script> tag in any namespace (e.g., <xhtml:script>)
+          if ("style".equals(elementName)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
 
   /**
    * Detects whether an SVG string contains potential JavaScript execution risks.
@@ -135,37 +163,25 @@ public class CheckSvg {
   }
 
   /**
-   * Decodes HTML entities like &lt;, &gt;, &amp;, &quot; into their respective characters.
-   *
-   * @param encoded The encoded string.
-   * @return Decoded string.
-   */
-  private static String decodeHtmlEntities(String encoded) {
-    return encoded
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&amp;", "&")
-        .replace("&quot;", "\"")
-        .replace("&#x27;", "'")
-        .replace("&#39;", "'")
-        .replace("&#x2F;", "/");
-  }
-
-  /**
    * Checks if a given string contains JavaScript execution vectors inside CSS.
    *
    * @param styleText CSS content extracted from <style> elements.
    * @return true if JavaScript execution vectors are found.
    */
   private static boolean containsJavaScriptPayload(String styleText) {
-    // Patterns to detect JavaScript injection in CSS properties
-    Pattern jsPatterns =
-        Pattern.compile(
-            "(<script.*?>|</script>|expression\\(|behavior:|javascript:|iframe|textarea)",
-            Pattern.CASE_INSENSITIVE);
+    String decoded = decodeHtmlEntities(styleText);
 
-    Matcher matcher = jsPatterns.matcher(styleText);
-    return matcher.find();
+    // Remove legitimate CSS selectors/properties first to reduce false positives
+    String cleaned = decoded.replaceAll("(?i)\\b(iframe|textarea|script)\\b\\s*\\{[^}]*}", "");
+
+    // Look for payload-like contexts (e.g., embedded in strings or attribute values)
+    Pattern payloadPattern =
+        Pattern.compile(
+            "(expression\\s*\\(|javascript\\s*:|url\\s*\\(\\s*['\"]?javascript:|"
+                + "srcdoc\\s*=|['\"]\\s*<\\s*(script|iframe|textarea)[^>]*>|@import\\s+url\\([^)]*\\))",
+            Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+
+    return payloadPattern.matcher(cleaned).find();
   }
 
   /**
