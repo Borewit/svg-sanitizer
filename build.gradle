@@ -35,7 +35,7 @@ java {
 
 
 group = 'io.github.borewit'
-version = '0.2.1'
+version = '0.3.0'
 description = 'SVG Sanitizer'
 java.sourceCompatibility = JavaVersion.VERSION_11
 java.targetCompatibility = JavaVersion.VERSION_11
@@ -96,17 +96,15 @@ publishing {
         }
     }
     repositories {
-        maven {
-            name = "OSSRH"
-            def releasesRepoUrl = 'https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/'
-            def snapshotsRepoUrl = 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
-            url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+      maven {
+        name = "ossrh-staging-api"
+        url = uri("https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/") // or snapshots/
 
-            credentials {
-                username = ossrhUsername
-                password = ossrhPassword
-            }
+        credentials {
+          username = project.findProperty("centralUsername") ?: ""
+          password = project.findProperty("centralPassword") ?: ""
         }
+      }
     }
 }
 
