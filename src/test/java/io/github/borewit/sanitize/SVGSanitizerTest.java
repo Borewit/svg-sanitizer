@@ -252,4 +252,28 @@ class SVGSanitizerTest {
         CheckSvg.containsStyleElement(sanitizedSvg),
         String.format("Sanitized SVG \"%s\" contain a style element", svgTestFile));
   }
+
+  @Test
+  @DisplayName("Sanitize style element")
+  void sanitizeStyleElement() throws Exception {
+    String svgTestFile = "style-external-resource.svg";
+
+    // Convert output to string for verification
+    String dirtySvg = this.getFixtureAsString(svgTestFile);
+
+    assertTrue(
+        CheckSvg.containsStyleElement(dirtySvg),
+        String.format("Test SVG \"%s\" contain a style element", svgTestFile));
+
+    String sanitizedSvg = SVGSanitizer.sanitize(dirtySvg);
+
+    // Save sanitized SVG for debugging
+    saveSvg(sanitizedSvg, svgTestFile);
+
+    assertTrue(
+        CheckSvg.containsStyleElement(sanitizedSvg),
+        String.format("Sanitized SVG \"%s\" contain a style element", svgTestFile));
+
+    assertFalse(sanitizedSvg.contains("evil.css"), "Should not contain any external URLs");
+  }
 }
