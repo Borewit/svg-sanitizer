@@ -225,7 +225,7 @@ public class SVGSanitizer {
     return css.replaceAll("(?i)expression\\s*\\(", "")
         .replaceAll("(?i)javascript\\s*:", "")
         .replaceAll("(?i)url\\s*\\(\\s*['\"]?javascript:[^)]*\\)", "")
-        .replaceAll("(?i)@import\\s+url\\([^)]*\\)", "")
+        .replaceAll("(?i)@import\\s+(url\\()?['\"]?[^'\")]+['\"]?\\)?\\s*;?", "")
         .replaceAll("(?i)srcdoc\\s*=", "")
         .replaceAll("(?i)<\\s*(script|iframe|textarea)[^>]*>", "")
         .replaceAll("<", "") // remove any remaining angle brackets
