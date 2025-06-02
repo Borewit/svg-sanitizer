@@ -25,6 +25,7 @@ import javax.xml.stream.events.Attribute;
 import javax.xml.stream.events.Namespace;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
+import org.apache.commons.text.StringEscapeUtils;
 
 /**
  * Utility class for sanitizing SVG content to remove potentially unsafe elements and attributes
@@ -219,7 +220,7 @@ public class SVGSanitizer {
 
   private static String sanitizeCss(String css) {
     // Decode encoded HTML entities like &lt;iframe&gt;
-    String decoded = decodeHtmlEntities(css);
+    final String decoded = StringEscapeUtils.unescapeHtml4(css);
 
     // Now apply filtering to the decoded version
     // remove any remaining angle brackets
@@ -233,23 +234,6 @@ public class SVGSanitizer {
         .replaceAll("(?i)<\\s*(script|iframe|textarea)[^>]*>", "")
         .replaceAll("<", "") // remove any remaining angle brackets
         .replaceAll(">", "");
-  }
-
-  /**
-   * Decodes HTML entities like &lt;, &gt;, &amp;, &quot; into their respective characters.
-   *
-   * @param encoded The encoded string.
-   * @return Decoded string.
-   */
-  public static String decodeHtmlEntities(String encoded) {
-    return encoded
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&amp;", "&")
-        .replace("&quot;", "\"")
-        .replace("&#x27;", "'")
-        .replace("&#39;", "'")
-        .replace("&#x2F;", "/");
   }
 
   /**

@@ -1,0 +1,7 @@
+<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    &lt; &gt; &amp; &quot; &#x27; &#39; &#x2F;
+  </style>
+  <circle class="circle" cx="100" cy="100" r="80" />
+  <text class="label" x="100" y="105" text-anchor="middle">Test SVG</text>
+</svg>
