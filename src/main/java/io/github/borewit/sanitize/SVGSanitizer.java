@@ -174,15 +174,6 @@ public class SVGSanitizer {
     Iterator<Attribute> sanitizedAttributes = sanitizeAttributes(startElement.getAttributes());
     Iterator<Namespace> namespaces = startElement.getNamespaces();
 
-    // Write <style> start tag
-    eventWriter.add(
-        eventFactory.createStartElement(
-            elementName.getPrefix(),
-            elementName.getNamespaceURI(),
-            elementName.getLocalPart(),
-            sanitizedAttributes,
-            namespaces));
-
     // Accumulate text inside <style> block
     StringBuilder styleContent = new StringBuilder();
     while (eventReader.hasNext()) {
@@ -196,13 +187,26 @@ public class SVGSanitizer {
     }
 
     // Sanitize the CSS and write it
-    String cleanedStyle = sanitizeCss(styleContent.toString());
-    eventWriter.add(eventFactory.createCharacters(cleanedStyle));
+    final String cleanedStyle = sanitizeCss(styleContent.toString());
 
-    // Close </style> tag
-    eventWriter.add(
-        eventFactory.createEndElement(
-            elementName.getPrefix(), elementName.getNamespaceURI(), elementName.getLocalPart()));
+    if (!cleanedStyle.isBlank()) {
+
+      // Write <style> start tag
+      eventWriter.add(
+          eventFactory.createStartElement(
+              elementName.getPrefix(),
+              elementName.getNamespaceURI(),
+              elementName.getLocalPart(),
+              sanitizedAttributes,
+              namespaces));
+
+      eventWriter.add(eventFactory.createCharacters(cleanedStyle));
+
+      // Close </style> tag
+      eventWriter.add(
+          eventFactory.createEndElement(
+              elementName.getPrefix(), elementName.getNamespaceURI(), elementName.getLocalPart()));
+    }
   }
 
   private static Iterator<Attribute> sanitizeAttributes(Iterator<Attribute> attributes) {
