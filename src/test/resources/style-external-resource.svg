@@ -3,6 +3,8 @@
     @import url("https://example.com/evil.css");
     &#x40;import url&#x28;"https://example.com/evil.css");
     &#x040;import url&#x028;"https://example.com/evil.css");
+    @import "evil.css";
+    @Import "evil.css";
 
     .circle {
     fill: lightblue;
