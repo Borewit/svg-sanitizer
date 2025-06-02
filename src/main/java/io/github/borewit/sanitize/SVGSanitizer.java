@@ -218,14 +218,7 @@ public class SVGSanitizer {
   }
 
   private static String sanitizeCss(String css) {
-    // Decode encoded HTML entities like &lt;iframe&gt;
-    String decoded = decodeHtmlEntities(css);
-
-    // Now apply filtering to the decoded version
-    // remove any remaining angle brackets
-
-    return decoded
-        .replaceAll("(?i)expression\\s*\\(", "")
+    return css.replaceAll("(?i)expression\\s*\\(", "")
         .replaceAll("(?i)javascript\\s*:", "")
         .replaceAll("(?i)url\\s*\\(\\s*['\"]?javascript:[^)]*\\)", "")
         .replaceAll("(?i)@import\\s+url\\([^)]*\\)", "")
@@ -233,23 +226,6 @@ public class SVGSanitizer {
         .replaceAll("(?i)<\\s*(script|iframe|textarea)[^>]*>", "")
         .replaceAll("<", "") // remove any remaining angle brackets
         .replaceAll(">", "");
-  }
-
-  /**
-   * Decodes HTML entities like &lt;, &gt;, &amp;, &quot; into their respective characters.
-   *
-   * @param encoded The encoded string.
-   * @return Decoded string.
-   */
-  public static String decodeHtmlEntities(String encoded) {
-    return encoded
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&amp;", "&")
-        .replace("&quot;", "\"")
-        .replace("&#x27;", "'")
-        .replace("&#39;", "'")
-        .replace("&#x2F;", "/");
   }
 
   /**

@@ -1,7 +1,5 @@
 package io.github.borewit.sanitize.util;
 
-import static io.github.borewit.sanitize.SVGSanitizer.decodeHtmlEntities;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -147,8 +145,7 @@ public class CheckSvg {
               }
             }
 
-            String styleText = styleContent.toString();
-            styleText = decodeHtmlEntities(styleText).toLowerCase();
+            String styleText = styleContent.toString().toLowerCase();
 
             // Check for suspicious JavaScript-like content inside <style>
             if (containsJavaScriptPayload(styleText)) {
@@ -169,10 +166,8 @@ public class CheckSvg {
    * @return true if JavaScript execution vectors are found.
    */
   private static boolean containsJavaScriptPayload(String styleText) {
-    String decoded = decodeHtmlEntities(styleText);
-
     // Remove legitimate CSS selectors/properties first to reduce false positives
-    String cleaned = decoded.replaceAll("(?i)\\b(iframe|textarea|script)\\b\\s*\\{[^}]*}", "");
+    String cleaned = styleText.replaceAll("(?i)\\b(iframe|textarea|script)\\b\\s*\\{[^}]*}", "");
 
     // Look for payload-like contexts (e.g., embedded in strings or attribute values)
     Pattern payloadPattern =
