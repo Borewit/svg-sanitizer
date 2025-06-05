@@ -73,6 +73,10 @@ tasks.register('javadocJar', Jar) {
   from(tasks.named('javadoc'))
 }
 
+tasks.named('jreleaserDeploy') {
+  dependsOn tasks.named('publishMavenJavaPublicationToPreDeployRepository')
+}
+
 publishing {
   publications {
 
