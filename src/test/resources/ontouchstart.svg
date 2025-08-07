@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 124 124" width="400" fill="none" height="400">
+  <rect rx="24" ontouchstart="alert(1)" width="124" fill="#000000" height="124"></rect>
+</svg>
