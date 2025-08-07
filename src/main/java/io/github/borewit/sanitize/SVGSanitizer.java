@@ -47,7 +47,87 @@ public class SVGSanitizer {
       Set.of("script", "foreignObject", "iframe", "embed", "object");
 
   private static final Set<String> UNSAFE_ATTRIBUTES =
-      Set.of("onload", "onclick", "onmouseover", "onerror", "onfocus", "onblur", "onkeydown");
+      Set.of(
+          // Mouse events
+          "onclick",
+          "ondblclick",
+          "onmousedown",
+          "onmouseup",
+          "onmouseover",
+          "onmousemove",
+          "onmouseout",
+          "onmouseenter",
+          "onmouseleave",
+
+          // Keyboard events
+          "onkeydown",
+          "onkeypress",
+          "onkeyup",
+
+          // Form events
+          "onfocus",
+          "onblur",
+          "onchange",
+          "oninput",
+          "onselect",
+          "onsubmit",
+          "onreset",
+
+          // Window events
+          "onload",
+          "onunload",
+          "onresize",
+          "onscroll",
+          "onerror",
+
+          // Drag & drop events
+          "ondrag",
+          "ondragend",
+          "ondragenter",
+          "ondragleave",
+          "ondragover",
+          "ondragstart",
+          "ondrop",
+
+          // Clipboard events
+          "oncopy",
+          "oncut",
+          "onpaste",
+
+          // Media events
+          "onplay",
+          "onpause",
+          "onplaying",
+          "oncanplay",
+          "oncanplaythrough",
+          "onended",
+          "onloadeddata",
+          "onloadedmetadata",
+          "onloadstart",
+          "onprogress",
+          "onratechange",
+          "onseeked",
+          "onseeking",
+          "onstalled",
+          "onsuspend",
+          "ontimeupdate",
+          "onvolumechange",
+          "onwaiting",
+
+          // Misc events
+          "onwheel",
+          "oncontextmenu",
+          "ontoggle",
+          "onanimationstart",
+          "onanimationend",
+          "onanimationiteration",
+          "ontransitionend",
+
+          // Touch events (MOBILE)
+          "ontouchstart",
+          "ontouchend",
+          "ontouchmove",
+          "ontouchcancel");
 
   /**
    * Sanitizes the given SVG content string by removing unsafe elements and attributes.

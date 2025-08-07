@@ -383,8 +383,31 @@ class SVGSanitizerTest {
 
     assertTrue(
         CheckSvg.containsStyleElement(sanitizedSvg),
-        String.format("Sanitized SVG \"%s\" contain a style element", svgTestFile));
+        String.format("Sanitized SVG \"%s\" contains a style element", svgTestFile));
 
     assertFalse(sanitizedSvg.contains("evil.css"), "Should not contain any external URLs");
+  }
+
+  @Test
+  @DisplayName("Sanitize ontouchstart")
+  void clearOnTouchStart() throws Exception {
+    String svgTestFile = "ontouchstart.svg";
+
+    // Convert output to string for verification
+    String dirtySvg = this.getFixtureAsString(svgTestFile);
+
+    assertTrue(
+        CheckSvg.containsJavaScript(dirtySvg),
+        String.format("Dirty SVG \"%s\" contains ontouchstart attribute", svgTestFile));
+
+    // Convert output to string for verification
+    String sanitizedSvg = SVGSanitizer.sanitize(dirtySvg);
+
+    assertFalse(
+        CheckSvg.containsJavaScript(sanitizedSvg),
+        String.format(
+            "Sanitized SVG \"%s\" should not contain ontouchstart attribute", svgTestFile));
+
+    System.out.println(sanitizedSvg);
   }
 }
