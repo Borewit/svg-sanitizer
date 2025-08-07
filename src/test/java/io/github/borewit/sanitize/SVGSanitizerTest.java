@@ -383,8 +383,49 @@ class SVGSanitizerTest {
 
     assertTrue(
         CheckSvg.containsStyleElement(sanitizedSvg),
-        String.format("Sanitized SVG \"%s\" contain a style element", svgTestFile));
+        String.format("Sanitized SVG \"%s\" contains a style element", svgTestFile));
 
     assertFalse(sanitizedSvg.contains("evil.css"), "Should not contain any external URLs");
+  }
+
+  @Test
+  @DisplayName("Sanitize ontouchstart")
+  void clearOnTouchStart() throws Exception {
+    String svgTestFile = "ontouchstart.svg";
+
+    // Convert output to string for verification
+    String dirtySvg = this.getFixtureAsString(svgTestFile);
+
+    assertTrue(
+        CheckSvg.containsJavaScript(dirtySvg),
+        String.format("Dirty SVG \"%s\" should contains ontouchstart attribute", svgTestFile));
+
+    // Convert output to string for verification
+    String sanitizedSvg = SVGSanitizer.sanitize(dirtySvg);
+
+    assertFalse(
+        CheckSvg.containsJavaScript(sanitizedSvg),
+        String.format(
+            "Sanitized SVG \"%s\" should not contain ontouchstart attribute", svgTestFile));
+  }
+
+  @Test
+  @DisplayName("form-action3.svg")
+  void tmp() throws Exception {
+    final String svgTestFile = "form-action3.svg";
+    String sanitizedSvg;
+    try (InputStream inputStream = SVGSanitizer.sanitize(this.getFixture(svgTestFile))) {
+      ByteArrayOutputStream result = new ByteArrayOutputStream();
+      byte[] buffer = new byte[1024];
+      for (int length; (length = inputStream.read(buffer)) != -1; ) {
+        result.write(buffer, 0, length);
+      }
+      // StandardCharsets.UTF_8.name() > JDK 7
+      sanitizedSvg = result.toString(StandardCharsets.UTF_8);
+      assertHash(sanitizedSvg, svgTestFile);
+    }
+    assertFalse(
+        CheckSvg.containsExternalEntities(sanitizedSvg),
+        String.format("Sanitized \"%s\" should not contain entity definitions", svgTestFile));
   }
 }

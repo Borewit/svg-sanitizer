@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLEventFactory;
@@ -40,14 +41,305 @@ import javax.xml.stream.events.XMLEvent;
  */
 public class SVGSanitizer {
 
+  private static final String NS_XML = "http://www.w3.org/xml/1998/namespace";
+  private static final String NS_SVG = "http://www.w3.org/2000/svg";
+  private static final String NS_XLINK = "http://www.w3.org/1999/xlink";
+
   private static final Set<Integer> UNSAFE_EVENT_TYPES =
       Set.of(XMLStreamConstants.DTD, XMLStreamConstants.ENTITY_REFERENCE);
 
   private static final Set<String> UNSAFE_ELEMENTS =
       Set.of("script", "foreignObject", "iframe", "embed", "object");
 
-  private static final Set<String> UNSAFE_ATTRIBUTES =
-      Set.of("onload", "onclick", "onmouseover", "onerror", "onfocus", "onblur", "onkeydown");
+  public static final Set<String> SAFE_XML_ATTRIBUTES =
+      Set.of("version", "encoding", "xmlns", "space");
+
+  /**
+   * MDN listed SVG attributes listed Reference:
+   * https://developer.mozilla.org/en-US/docs/Web/SVG/Reference/Attribute
+   */
+  public static final Set<String> SAFE_SVG_ATTRIBUTES =
+      Set.of(
+
+          // Documented MDN SVG attributes
+          "accumulate",
+          "additive",
+          "alignment-baseline",
+          "amplitude",
+          "attributeName",
+          "attributeType",
+          "azimuth",
+          "baseFrequency",
+          "baseline-shift",
+          "baseProfile",
+          "begin",
+          "bias",
+          "by",
+          "calcMode",
+          "class",
+          "clip",
+          "clip-path",
+          "clipPathUnits",
+          "clip-rule",
+          "color",
+          "color-interpolation",
+          "color-interpolation-filters",
+          "crossorigin",
+          "cursor",
+          "cx",
+          "cy",
+          "d",
+          "data-*",
+          "decoding",
+          "diffuseConstant",
+          "direction",
+          "display",
+          "divisor",
+          "dominant-baseline",
+          "dur",
+          "dx",
+          "dy",
+          "edgeMode",
+          "elevation",
+          "end",
+          "exponent",
+          "fetchpriority",
+          "fill",
+          "fill-opacity",
+          "fill-rule",
+          "filter",
+          "filterUnits",
+          "flood-color",
+          "flood-opacity",
+          "font-family",
+          "font-size",
+          "font-size-adjust",
+          "font-stretch",
+          "font-style",
+          "font-variant",
+          "font-weight",
+          "fr",
+          "from",
+          "fx",
+          "fy",
+          "glyph-orientation-horizontal",
+          "glyph-orientation-vertical",
+          "gradientTransform",
+          "gradientUnits",
+          "height",
+          "hreflang",
+          "id",
+          "image-rendering",
+          "in",
+          "in2",
+          "intercept",
+          "k",
+          "k1",
+          "k2",
+          "k3",
+          "k4",
+          "kernelMatrix",
+          "kernelUnitLength",
+          "keyPoints",
+          "keySplines",
+          "keyTimes",
+          "lang",
+          "lengthAdjust",
+          "letter-spacing",
+          "lighting-color",
+          "limitingConeAngle",
+          "marker-end",
+          "marker-mid",
+          "marker-start",
+          "markerHeight",
+          "markerUnits",
+          "markerWidth",
+          "mask",
+          "maskContentUnits",
+          "maskUnits",
+          "max",
+          "media",
+          "method",
+          "min",
+          "mode",
+          "numOctaves",
+          "offset",
+          "opacity",
+          "operator",
+          "order",
+          "orient",
+          "origin",
+          "overflow",
+          "paint-order",
+          "path",
+          "pathLength",
+          "patternContentUnits",
+          "patternTransform",
+          "patternUnits",
+          "ping",
+          "pointer-events",
+          "points",
+          "pointsAtX",
+          "pointsAtY",
+          "pointsAtZ",
+          "preserveAlpha",
+          "preserveAspectRatio",
+          "primitiveUnits",
+          "r",
+          "radius",
+          "referrerPolicy",
+          "refX",
+          "refY",
+          "rel",
+          "repeatCount",
+          "repeatDur",
+          "requiredExtensions",
+          "requiredFeatures",
+          "restart",
+          "result",
+          "rotate",
+          "rx",
+          "ry",
+          "scale",
+          "seed",
+          "shape-rendering",
+          "side",
+          "slope",
+          "spacing",
+          "specularConstant",
+          "specularExponent",
+          "spreadMethod",
+          "startOffset",
+          "stdDeviation",
+          "stitchTiles",
+          "stop-color",
+          "stop-opacity",
+          "stroke",
+          "stroke-dasharray",
+          "stroke-dashoffset",
+          "stroke-linecap",
+          "stroke-linejoin",
+          "stroke-miterlimit",
+          "stroke-opacity",
+          "stroke-width",
+          "style",
+          "surfaceScale",
+          "systemLanguage",
+          "tabindex",
+          "tableValues",
+          "target",
+          "targetX",
+          "targetY",
+          "text-anchor",
+          "text-decoration",
+          "text-rendering",
+          "textLength",
+          "to",
+          "transform",
+          "transform-origin",
+          "type",
+          "unicode-bidi",
+          "values",
+          "vector-effect",
+          "version",
+          "viewBox",
+          "visibility",
+          "width",
+          "word-spacing",
+          "writing-mode",
+          "x",
+          "x1",
+          "x2",
+          "xChannelSelector",
+          "y",
+          "y1",
+          "y2",
+          "yChannelSelector",
+          "z",
+          "zoomAndPan",
+          // Other safe SVG attributes
+          "accent-height",
+          "color-rendering",
+          "orientation",
+          "white-space", // https://www.w3.org/TR/css-text-3/#white-space-property
+          // non SVG attributes
+          "xmlns",
+          // ARIA metadata attributes which may appear in SVG elements
+          "aria-activedescendant",
+          "aria-atomic",
+          "aria-autocomplete",
+          "aria-busy",
+          "aria-checked",
+          "aria-colcount",
+          "aria-colindex",
+          "aria-colspan",
+          "aria-controls",
+          "aria-current",
+          "aria-describedby",
+          "aria-description",
+          "aria-details",
+          "aria-disabled",
+          "aria-dropeffect", // Deprecated, still encountered
+          "aria-errormessage",
+          "aria-expanded",
+          "aria-flowto",
+          "aria-grabbed", // Deprecated
+          "aria-haspopup",
+          "aria-hidden",
+          "aria-invalid",
+          "aria-keyshortcuts",
+          "aria-label",
+          "aria-labelledby",
+          "aria-level",
+          "aria-live",
+          "aria-modal",
+          "aria-multiline",
+          "aria-multiselectable",
+          "aria-orientation",
+          "aria-owns",
+          "aria-placeholder",
+          "aria-posinset",
+          "aria-pressed",
+          "aria-readonly",
+          "aria-relevant",
+          "aria-required",
+          "aria-roledescription",
+          "aria-rowcount",
+          "aria-rowindex",
+          "aria-rowspan",
+          "aria-selected",
+          "aria-setsize",
+          "aria-sort",
+          "aria-valuemax",
+          "aria-valuemin",
+          "aria-valuenow",
+          "aria-valuetext");
+
+  /**
+   * Deprecated SVG attributes. Currently NOT included in the white list. Not sure if it is better
+   * to include them (or some) for backward compatibility
+   */
+  public static final Set<String> SAFE_SVG_DEPRECATED_ATTRIBUTES =
+      Set.of(
+          "ascent",
+          "color-profile",
+          "g1",
+          "g2",
+          "glyph-name",
+          "glyphref",
+          "kerning",
+          "local",
+          "name",
+          "u1",
+          "u2",
+          "unicode",
+          "vert-adv-y",
+          "vert-origin-x",
+          "vert-origin-y",
+          "wrap");
+
+  private static final Map<String, Set<String>> NamespaceAttributeMap =
+      Map.ofEntries(Map.entry(NS_SVG, SAFE_SVG_ATTRIBUTES), Map.entry(NS_XML, SAFE_XML_ATTRIBUTES));
 
   /**
    * Sanitizes the given SVG content string by removing unsafe elements and attributes.
@@ -127,6 +419,7 @@ public class SVGSanitizer {
     factory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
     // Ignore unknown entities
     factory.setProperty(XMLInputFactory.IS_REPLACING_ENTITY_REFERENCES, false);
+    factory.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, true);
 
     final XMLOutputFactory outFactory = XMLOutputFactory.newInstance();
     final XMLEventFactory eventFactory = XMLEventFactory.newInstance();
@@ -272,16 +565,22 @@ public class SVGSanitizer {
     boolean foundOffendingAttributes = false;
     while (attributes.hasNext()) {
       final Attribute attr = attributes.next();
-      final String attrName = attr.getName().getLocalPart();
+      final QName attrName = attr.getName();
+
+      // Resolve attribute specification namespace-URI
+      String ns = attrName.getNamespaceURI();
+      if (ns.isEmpty()) {
+        ns = startElement.getName().getNamespaceURI();
+      }
+      ns = ns.toLowerCase();
+
+      final String localName = attrName.getLocalPart();
       final String attrValue = attr.getValue().toLowerCase();
-      if (UNSAFE_ATTRIBUTES.contains(attrName)
-          || attrValue.startsWith("javascript:")
-          || ("href".equals(attrName)
-              && !attrValue.startsWith("data:")
-              && !attrValue.startsWith("#"))) {
-        foundOffendingAttributes = true;
-      } else {
+
+      if (includeAttribute(ns, localName, attrValue)) {
         sanitizedAttributes.add(attr);
+      } else {
+        foundOffendingAttributes = true;
       }
     }
     return foundOffendingAttributes
@@ -290,5 +589,33 @@ public class SVGSanitizer {
             startElement.getName(), sanitizedAttributes.iterator(), startElement.getNamespaces())
         // Element was fine, return original
         : startElement;
+  }
+
+  /**
+   * Assess attribute for inclusion
+   *
+   * @param ns Namespace specification of the attribute, or empty
+   * @param localName Attribute name
+   * @param attrValue Attribute value
+   * @return true if the attribute is considered safe for inclusion
+   */
+  private static boolean includeAttribute(String ns, String localName, String attrValue) {
+    if (ns.isEmpty()) {
+      // No namespace defined
+      return false;
+    }
+
+    Set<String> attributeWhiteList = NamespaceAttributeMap.get(ns);
+    if (attributeWhiteList != null) {
+      return attributeWhiteList.contains(localName) && !attrValue.startsWith("javascript:");
+    }
+
+    if (NS_XLINK.equals(ns)) {
+      if ("href".equals(localName)) {
+        return attrValue.startsWith("data:") || attrValue.startsWith("#");
+      }
+    }
+
+    return false;
   }
 }
