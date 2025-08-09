@@ -15,6 +15,7 @@ repositories {
 }
 
 dependencies {
+  testImplementation 'org.apache.santuario:xmlsec:4.0.4'
 }
 
 testing {

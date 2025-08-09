@@ -1,16 +1,23 @@
 package io.github.borewit.sanitize;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.borewit.sanitize.util.CheckSvg;
+import io.github.borewit.sanitize.util.XmlHash;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.NoSuchAlgorithmException;
+import java.util.Map;
+import org.apache.xml.security.c14n.CanonicalizationException;
+import org.apache.xml.security.c14n.InvalidCanonicalizerException;
+import org.apache.xml.security.parser.XMLParserException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,8 +29,103 @@ class SVGSanitizerTest {
   private static final String RESOURCE_SVG_PATH = "/";
   private static final String SANITIZED_PATH = "build/sanitized";
 
+  // Map of expected hashes keyed by filename
+  private static final Map<String, String> EXPECTED_HASHES =
+      Map.ofEntries(
+          Map.entry(
+              "attacker-controlled.svg",
+              "6e33ca4096b552fabb7c1baa33d7e0a2281e455519465acfd583813779551b3c"),
+          Map.entry(
+              "billionlaughs.svg",
+              "b7a4cfd7e051e3babf5fddcb9a1dd37b987df8b2f592653c6495452b226ef343"),
+          Map.entry(
+              "form-action2.svg",
+              "eb01f0235328631a114673513ddefc0fe250f5d1ac2c6c42342a05f422520e2d"),
+          Map.entry(
+              "circleBlinkJS.svg",
+              "5f83e2876fc458ac786e33a82a5a08c2b78f52b4aa31e12940e33e8a08ad3ce8"),
+          Map.entry(
+              "eicar.svg", "7d7560b91affedef4f395aef312435e84825eb186f1d42c79f980b53a490de84"),
+          Map.entry(
+              "Flag_of_the_United_States.svg",
+              "249a930f7adc0e078bc8167998b6a9558e4e06c5e3b099e3af419bd23c67be97"),
+          Map.entry(
+              "form-action.svg",
+              "7e2e6328e7b0f47b022d10ce8b4fe843ccf651e1ded833b9e8f1e783f3227b13"),
+          Map.entry(
+              "form-action-case.svg",
+              "44eddf60cc1f0c6c37111c478fa8e0d432ca8350b130b6022df34149640bcd4b"),
+          Map.entry(
+              "form-action2-case.svg",
+              "ba86c67cc703779b689f7aa31ff31216e6f02a36431f5b6af24cf1f23c72040f"),
+          Map.entry(
+              "form-action3.svg",
+              "8188e1401967e5525fc090ff95697fe30b3c810ad67a397f401ea0e5d4d3824c"),
+          Map.entry(
+              "javascriptalert.svg",
+              "cfd74f25e4bd5340cd580d27e491cf9ba97de917e74190f7e4e3da8a8e715c73"),
+          Map.entry("svg.svg", "0a71dea370125735233faff95e9d37d7745ef078f083a6e56e87594da2b2a99a"),
+          Map.entry(
+              "SVG-alert.svg", "85bb989d868b1a4a8fc7a1529479313f43d8d733336743b510aa802e9763ad4b"),
+          Map.entry(
+              "SVG-alert-eicar.svg",
+              "85bb989d868b1a4a8fc7a1529479313f43d8d733336743b510aa802e9763ad4b"),
+          Map.entry(
+              "SVG-alertv2(1).svg",
+              "85bb989d868b1a4a8fc7a1529479313f43d8d733336743b510aa802e9763ad4b"),
+          Map.entry(
+              "SVG-alertv2.svg",
+              "85bb989d868b1a4a8fc7a1529479313f43d8d733336743b510aa802e9763ad4b"),
+          Map.entry(
+              "recursive-foreignobject.svg",
+              "4a156f801b31b5dbdcb7bb0c6d16d6aa8b46ac4de5461d0c4fc77fac9a6ba3f0"),
+          Map.entry(
+              "test(1).svg", "7d7560b91affedef4f395aef312435e84825eb186f1d42c79f980b53a490de84"),
+          Map.entry("test.svg", "9ddd88849fb1dbb516a992490cc5f92c9e9e6361f013fb80f7ee1720972a209a"),
+          Map.entry(
+              "test2(1).svg", "7d7560b91affedef4f395aef312435e84825eb186f1d42c79f980b53a490de84"),
+          Map.entry(
+              "test2.svg", "7d7560b91affedef4f395aef312435e84825eb186f1d42c79f980b53a490de84"),
+          Map.entry(
+              "circleWithS.svg",
+              "e5ba76c1630eab587e7ec46df812cefefa34bc6a65f3175fbd3e3e1bac494388"),
+          Map.entry(
+              "externalimage.svg",
+              "4ba2ad7d20adfcd7d75b86cf57b1ae7fb759322ab14f4fbd7b119ea9fbb046bb"),
+          Map.entry(
+              "externalimage2.svg",
+              "cd79c741d81e781f389438788f376a0d007e2e3ad3dcb885850959cda3c9ba37"),
+          Map.entry(
+              "test(2).svg", "e69ce54ff2a61e67cc88d65b63889851217608a0a9851df085325651cf413389"),
+          Map.entry(
+              "test(3).svg", "dadbb58f3881b0b4491598ca9e74c80e5de61492f9390969acc30a44a439babb"),
+          Map.entry(
+              "test(4).svg", "928c4817e7fa0933e3d53e86d19861addfec9f89bda22b45f30f4015b97a2f2e"),
+          Map.entry(
+              "test-href-javascript.svg",
+              "ed9f2b82ba1878429c14703d897218475fe3969654e4aeb9010289429eae5a86"),
+          Map.entry(
+              "test-href-javascript2.svg",
+              "80dc3945e9b22205712ee72ead45f9ba94a8c903f8dd61d1937460e5f920c9bf"),
+          Map.entry(
+              "test-href-javascript3.svg",
+              "80dc3945e9b22205712ee72ead45f9ba94a8c903f8dd61d1937460e5f920c9bf"),
+          Map.entry(
+              "style.svg", "82684c5031c30cad3c44333ae73c23f3483ee64a666c22b4b47a5b12fa8e748a"),
+          Map.entry(
+              "style-external-resource.svg",
+              "fd23f8fde57b01e6433be65bd87f0fe770954d13ccde56bc4d5ac67f4ec28b3b"));
+  ;
+
   @BeforeEach
   void setup() throws Exception {
+
+    // Use the Java build in XML factory (xmlsec introduces other libraries)
+    System.setProperty(
+        "javax.xml.stream.XMLInputFactory", "com.sun.xml.internal.stream.XMLInputFactoryImpl");
+
+    XmlHash.init(); // Needs to be called once, before using digest
+
     // Ensure the target directory exists
     Files.createDirectories(Paths.get(SANITIZED_PATH)); // ✅ Ensure target/ exists
 
@@ -86,10 +188,6 @@ class SVGSanitizerTest {
 
     // Save sanitized SVG for debugging
     saveSvg(sanitizedSvg, svgTestFile);
-
-    assertFalse(
-        CheckSvg.containsJavaScriptInStyle(sanitizedSvg),
-        String.format("Sanitized \"%s\" should not contain JavaScript", svgTestFile));
   }
 
   @ParameterizedTest
@@ -118,10 +216,6 @@ class SVGSanitizerTest {
 
     // Save sanitized SVG for debugging
     saveSvg(sanitizedSvg, svgTestFile);
-
-    assertFalse(
-        CheckSvg.containsExternalResources(sanitizedSvg),
-        String.format("Sanitized \"%s\" should not contain an external resource", svgTestFile));
   }
 
   @Test
@@ -138,12 +232,6 @@ class SVGSanitizerTest {
 
     // Save sanitized SVG for debugging
     saveSvg(sanitizedSvg, svgTestFile);
-
-    assertTrue(
-        CheckSvg.hasInternalReferences(sanitizedSvg),
-        String.format(
-            "Dirty \"%s\" should still contain internal references after sanitization",
-            svgTestFile));
   }
 
   @ParameterizedTest
@@ -216,6 +304,9 @@ class SVGSanitizerTest {
       }
       // StandardCharsets.UTF_8.name() > JDK 7
       sanitizedSvg = result.toString(StandardCharsets.UTF_8);
+      String actualHash = XmlHash.digest(sanitizedSvg);
+      assertEquals(
+          EXPECTED_HASHES.get(svgTestFile), actualHash, "Hash mismatch for " + svgTestFile);
     }
     assertFalse(
         CheckSvg.containsExternalEntities(sanitizedSvg),
@@ -223,12 +314,23 @@ class SVGSanitizerTest {
   }
 
   /** Saves the sanitized SVG file to `build/sanitized/` for debugging. */
-  private void saveSvg(String sanitizedSvg, String testFileName) throws IOException {
+  private void saveSvg(String sanitizedSvg, String testFileName)
+      throws IOException,
+          XMLParserException,
+          InvalidCanonicalizerException,
+          CanonicalizationException,
+          NoSuchAlgorithmException {
     Files.createDirectories(Paths.get(SANITIZED_PATH)); // Ensure directory exists
     String sanitizedFilename = testFileName.replace(".svg", "-sanitized.svg");
 
     String outputPath = SANITIZED_PATH + "/" + sanitizedFilename;
     Files.writeString(Paths.get(outputPath), sanitizedSvg);
+
+    // Regression test, to alert for any changes in the output
+    assertEquals(
+        EXPECTED_HASHES.get(testFileName),
+        XmlHash.digest(sanitizedSvg),
+        String.format("Sanitized \"%s\" should match SHA-256", testFileName));
   }
 
   @Test
@@ -247,6 +349,10 @@ class SVGSanitizerTest {
 
     // Save sanitized SVG for debugging
     saveSvg(sanitizedSvg, svgTestFile);
+
+    // Regression test, to alert for any changes in the output
+    String actualHash = XmlHash.digest(sanitizedSvg);
+    assertEquals(EXPECTED_HASHES.get(svgTestFile), actualHash, "Hash mismatch for " + svgTestFile);
 
     assertTrue(
         CheckSvg.containsStyleElement(sanitizedSvg),
@@ -273,6 +379,10 @@ class SVGSanitizerTest {
     assertTrue(
         CheckSvg.containsStyleElement(sanitizedSvg),
         String.format("Sanitized SVG \"%s\" contain a style element", svgTestFile));
+
+    // Regression test, to alert for any changes in the output
+    assertEquals(
+        EXPECTED_HASHES.get(svgTestFile), XmlHash.digest(sanitizedSvg), "Digest sanitized SVG");
 
     assertFalse(sanitizedSvg.contains("evil.css"), "Should not contain any external URLs");
   }
