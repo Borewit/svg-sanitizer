@@ -115,7 +115,6 @@ class SVGSanitizerTest {
           Map.entry(
               "style-external-resource.svg",
               "fd23f8fde57b01e6433be65bd87f0fe770954d13ccde56bc4d5ac67f4ec28b3b"));
-  ;
 
   @BeforeEach
   void setup() throws Exception {
@@ -304,13 +303,28 @@ class SVGSanitizerTest {
       }
       // StandardCharsets.UTF_8.name() > JDK 7
       sanitizedSvg = result.toString(StandardCharsets.UTF_8);
-      String actualHash = XmlHash.digest(sanitizedSvg);
-      assertEquals(
-          EXPECTED_HASHES.get(svgTestFile), actualHash, "Hash mismatch for " + svgTestFile);
+      assertHash(sanitizedSvg, svgTestFile);
     }
     assertFalse(
         CheckSvg.containsExternalEntities(sanitizedSvg),
         String.format("Sanitized \"%s\" should not contain entity definitions", svgTestFile));
+  }
+
+  /** Regression test, to alert for any changes in the output */
+  private void assertHash(String sanitizedSvg, String svgTestFile)
+      throws IOException,
+          InvalidCanonicalizerException,
+          NoSuchAlgorithmException,
+          XMLParserException,
+          CanonicalizationException {
+    final String actualHash = XmlHash.digest(sanitizedSvg);
+    assertTrue(
+        EXPECTED_HASHES.containsKey(svgTestFile),
+        String.format("Missing hash for \"%s\": \"%s\"", svgTestFile, actualHash));
+    assertEquals(
+        EXPECTED_HASHES.get(svgTestFile),
+        actualHash,
+        String.format("Hash mismatch for \"%s\"", svgTestFile));
   }
 
   /** Saves the sanitized SVG file to `build/sanitized/` for debugging. */
@@ -325,12 +339,7 @@ class SVGSanitizerTest {
 
     String outputPath = SANITIZED_PATH + "/" + sanitizedFilename;
     Files.writeString(Paths.get(outputPath), sanitizedSvg);
-
-    // Regression test, to alert for any changes in the output
-    assertEquals(
-        EXPECTED_HASHES.get(testFileName),
-        XmlHash.digest(sanitizedSvg),
-        String.format("Sanitized \"%s\" should match SHA-256", testFileName));
+    assertHash(sanitizedSvg, testFileName);
   }
 
   @Test
@@ -349,10 +358,6 @@ class SVGSanitizerTest {
 
     // Save sanitized SVG for debugging
     saveSvg(sanitizedSvg, svgTestFile);
-
-    // Regression test, to alert for any changes in the output
-    String actualHash = XmlHash.digest(sanitizedSvg);
-    assertEquals(EXPECTED_HASHES.get(svgTestFile), actualHash, "Hash mismatch for " + svgTestFile);
 
     assertTrue(
         CheckSvg.containsStyleElement(sanitizedSvg),
@@ -379,10 +384,6 @@ class SVGSanitizerTest {
     assertTrue(
         CheckSvg.containsStyleElement(sanitizedSvg),
         String.format("Sanitized SVG \"%s\" contain a style element", svgTestFile));
-
-    // Regression test, to alert for any changes in the output
-    assertEquals(
-        EXPECTED_HASHES.get(svgTestFile), XmlHash.digest(sanitizedSvg), "Digest sanitized SVG");
 
     assertFalse(sanitizedSvg.contains("evil.css"), "Should not contain any external URLs");
   }
