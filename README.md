@@ -110,5 +110,9 @@ public static InputStream sanitize(InputStream inputStream)
 ```
 Acts as a filter, returning a new `InputStream` with the sanitized SVG.
 
+## Security considerations
+User-uploaded SVGs can contain malicious content that may be executed in a browser context. Sanitizing SVGs is an important step, but should be combined with other measures for full protection.
+See [SVG security best practices](SVG-security-best-practices.md) for a broader overview.
+
 ## License
 This project is licensed under the [MIT License](LICENSE.txt)
