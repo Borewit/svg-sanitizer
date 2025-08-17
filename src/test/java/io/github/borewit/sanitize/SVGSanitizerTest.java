@@ -80,6 +80,7 @@ class SVGSanitizerTest {
             "form-action3.svg",
             "form-action-case.svg",
             "javascriptalert.svg",
+            "image-href.svg",
             "ontouchstart.svg",
             "recursive-foreignobject.svg",
             "S.svg",
@@ -411,25 +412,32 @@ class SVGSanitizerTest {
         CheckSvg.containsJavaScript(sanitizedSvg),
         String.format(
             "Sanitized SVG \"%s\" should not contain ontouchstart attribute", svgTestFile));
+
+    // Save sanitized SVG for debugging
+    saveSvg(sanitizedSvg, svgTestFile);
   }
 
   @Test
-  @DisplayName("form-action3.svg")
-  void tmp() throws Exception {
-    final String svgTestFile = "form-action3.svg";
-    String sanitizedSvg;
-    try (InputStream inputStream = SVGSanitizer.sanitize(this.getFixture(svgTestFile))) {
-      ByteArrayOutputStream result = new ByteArrayOutputStream();
-      byte[] buffer = new byte[1024];
-      for (int length; (length = inputStream.read(buffer)) != -1; ) {
-        result.write(buffer, 0, length);
-      }
-      // StandardCharsets.UTF_8.name() > JDK 7
-      sanitizedSvg = result.toString(StandardCharsets.UTF_8);
-      assertHash(sanitizedSvg, svgTestFile);
-    }
+  @DisplayName("Sanitize image href")
+  void testSanitizingImageHref() throws Exception {
+    String svgTestFile = "image-href.svg";
+
+    // Convert output to string for verification
+    String dirtySvg = this.getFixtureAsString(svgTestFile);
+
+    assertTrue(dirtySvg.contains("href=\"data:image/png;base64,"), "dirty SVG contains data URL");
+    assertTrue(dirtySvg.contains("href=\"http://external\""), "dirty SVG contains external URL");
+
+    // Convert output to string for verification
+    String sanitizedSvg = SVGSanitizer.sanitize(dirtySvg);
+
+    assertTrue(
+        sanitizedSvg.contains("href=\"data:image/png;base64,"), "sanitized SVG contains data URL");
     assertFalse(
-        CheckSvg.containsExternalEntities(sanitizedSvg),
-        String.format("Sanitized \"%s\" should not contain entity definitions", svgTestFile));
+        sanitizedSvg.contains("href=\"http://external\""),
+        "dirty SVG does not contain external URL");
+
+    // Save sanitized SVG for debugging
+    saveSvg(sanitizedSvg, svgTestFile);
   }
 }
