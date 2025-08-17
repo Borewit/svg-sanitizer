@@ -1,50 +1,97 @@
 package io.github.borewit.sanitize.util;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 import org.apache.xml.security.c14n.CanonicalizationException;
 import org.apache.xml.security.c14n.Canonicalizer;
 import org.apache.xml.security.c14n.InvalidCanonicalizerException;
-import org.apache.xml.security.parser.XMLParserException;
+import org.w3c.dom.Document;
+import org.w3c.dom.DocumentType;
 
 public class XmlHash {
+
+  private static final String DOCTYPE_PUBLIC_FMT = "<!DOCTYPE %1$s PUBLIC \"%2$s\" \"%3$s\">";
+  private static final String DOCTYPE_SYSTEM_FMT = "<!DOCTYPE %1$s SYSTEM \"%2$s\">";
 
   public static void init() {
     org.apache.xml.security.Init.init();
   }
-  ;
 
-  public static String digest(String xml)
-      throws IOException,
-          InvalidCanonicalizerException,
-          NoSuchAlgorithmException,
-          XMLParserException,
-          CanonicalizationException {
+  private static String getDoctypeStr(Document doc) {
+    DocumentType dt = doc.getDoctype();
+    if (dt != null) {
+      String name = dt.getName();
+      String publicId = dt.getPublicId();
+      String systemId = dt.getSystemId();
+      if (publicId != null) {
+        return String.format(DOCTYPE_PUBLIC_FMT, name, publicId, systemId);
+      } else if (systemId != null) {
+        return String.format(DOCTYPE_SYSTEM_FMT, name, systemId);
+      }
+    }
+    return "";
+  }
 
-    // Get the canonicalizer instance
-    Canonicalizer canon = Canonicalizer.getInstance(Canonicalizer.ALGO_ID_C14N_OMIT_COMMENTS);
+  public static String digest(byte[] xmlData) throws DigestException {
+    // Parse XML safely
 
-    // Prepare an output stream to capture canonicalized output
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-
-    // Canonicalize the whole document subtree
-    canon.canonicalize(xml.getBytes(StandardCharsets.UTF_8), baos, true);
-
-    byte[] canonicalizedBytes = baos.toByteArray();
-
-    // Hash the canonicalized XML (SHA-256)
-    MessageDigest md = MessageDigest.getInstance("SHA-256");
-    byte[] digest = md.digest(canonicalizedBytes);
-
-    // Convert hash to hex string
-    StringBuilder hex = new StringBuilder();
-    for (byte b : digest) {
-      hex.append(String.format("%02x", b));
+    Document doc;
+    try {
+      DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+      dbf.setNamespaceAware(true);
+      dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false);
+      dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+      dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+      DocumentBuilder db = dbf.newDocumentBuilder();
+      doc = db.parse(new ByteArrayInputStream(xmlData));
+    } catch (Exception exception) {
+      throw new DigestException("Failed to process XML document");
     }
 
-    return hex.toString();
+    // Capture DOCTYPE as string
+    String doctypeStr = getDoctypeStr(doc);
+
+    // Canonicalize the DOM document
+    ByteArrayOutputStream baos;
+    try {
+      Canonicalizer canon = Canonicalizer.getInstance(Canonicalizer.ALGO_ID_C14N_OMIT_COMMENTS);
+      baos = new ByteArrayOutputStream();
+      canon.canonicalizeSubtree(doc, baos);
+    } catch (InvalidCanonicalizerException | CanonicalizationException e) {
+      throw new DigestException("Failed to canonicalize XML", e);
+    }
+
+    try {
+      // Combine DOCTYPE + canonicalized content
+      ByteArrayOutputStream combined = new ByteArrayOutputStream();
+      combined.write(doctypeStr.getBytes(StandardCharsets.UTF_8));
+      combined.write(baos.toByteArray());
+
+      // Hash
+      MessageDigest md = MessageDigest.getInstance("SHA-256");
+      byte[] digest = md.digest(combined.toByteArray());
+
+      // Convert to hex
+      StringBuilder hex = new StringBuilder();
+      for (byte b : digest) {
+        hex.append(String.format("%02x", b));
+      }
+      return hex.toString();
+    } catch (NoSuchAlgorithmException | UnsupportedEncodingException e) {
+      throw new DigestException("Failed to hash canonicalized XML data", e);
+    } catch (IOException ioException) {
+      throw new DigestException("Failed to convert to byte array", ioException);
+    }
+  }
+
+  public static String digest(String xml) throws DigestException {
+    return digest(xml.getBytes(StandardCharsets.UTF_8));
   }
 }
