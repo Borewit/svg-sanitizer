@@ -514,7 +514,16 @@ public class SVGSanitizer {
             } else if ("style".equals(localElementName)) {
               filterStyle(eventWriter, startElement, eventReader);
             } else {
-              eventWriter.add(getElementWithSanitizedAttributes(startElement, eventFactory));
+              StartElement sanitizedElement =
+                  getElementWithSanitizedAttributes(startElement, eventFactory);
+              if ("image".equals(localElementName)
+                  && NS_SVG.equals(sanitizedElement.getName().getNamespaceURI())) {
+                if (sanitizedElement.getAttributeByName(new QName(null, "href")) == null) {
+                  skipElementAndChildren(eventReader);
+                  continue;
+                }
+              }
+              eventWriter.add(sanitizedElement);
             }
           }
         }
