@@ -57,10 +57,10 @@ public class SVGSanitizerExample {
     File inputFile = new File("unsafe.svg");
     File outputFile = new File("sanitized.svg");
 
-    try (InputStream inputStream = new FileInputStream(inputFile);
-         OutputStream outputStream = new FileOutputStream(outputFile)) {
-
-      SVGSanitizer.sanitize(inputStream, outputStream);
+    try (InputStream inputStream = new FileInputStream(inputFile)) {
+         try (OutputStream outputStream = new FileOutputStream(outputFile)) {
+            SVGSanitizer.sanitize(inputStream, outputStream);
+          }
     }
 
     System.out.println("Sanitized SVG has been saved to " + outputFile.getAbsolutePath());
