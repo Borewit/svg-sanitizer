@@ -19,6 +19,8 @@ repositories {
 }
 
 dependencies {
+  // https://github.com/phax/ph-css/
+  implementation('com.helger:ph-css:7.0.5')
   testImplementation 'org.apache.santuario:xmlsec:4.0.4'
   testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.22.3'
   testImplementation 'io.sf.carte:echosvg-transcoder:2.5'

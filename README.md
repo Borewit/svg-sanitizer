@@ -110,6 +110,25 @@ public static InputStream sanitize(InputStream inputStream)
 ```
 Acts as a filter, returning a new `InputStream` with the sanitized SVG.
 
+## CSS support
+
+CSS in `<style>` elements, inline `style` attributes, and supported SVG presentation attributes
+is parsed with [ph-css](https://github.com/phax/ph-css) and filtered using the same policy.
+The supported subset includes common SVG paint, stroke, text, opacity and transform properties,
+ordinary style rules, and nested `@media` rules. Local references such as `fill: url(#gradient)`
+are preserved; fragment identifiers are limited to letters, digits, underscores, periods, colons and hyphens.
+
+External, relative and data URLs are removed from CSS. Imports, namespaces, font faces,
+keyframes and other unsupported at-rules are removed, as are custom properties and unsupported
+functions, including `var()`, `attr()`, `image-set()` and `expression()`. Unsafe declarations
+are removed rather than replaced with default values. Malformed CSS is discarded. Each CSS block
+or attribute is limited to 100,000 characters and 10 levels of delimiter nesting; input exceeding
+these limits is discarded before parsing. This conservative policy can change the appearance of
+SVGs that use unsupported CSS features. Stylesheets are serialized in compact form.
+
+Stylesheet selectors are preserved and are not scoped to the SVG. Applications embedding SVG
+inline in an HTML document should isolate it if its CSS must not affect the surrounding page.
+
 ## Security considerations
 User-uploaded SVGs can contain malicious content that may be executed in a browser context. Sanitizing SVGs is an important step, but should be combined with other measures for full protection.
 See [SVG security best practices](SVG-security-best-practices.md) for a broader overview.
