@@ -202,7 +202,7 @@ class SVGSanitizerTest {
   }
 
   @Test
-  @DisplayName("Preserve local anchor xlink:href")
+  @DisplayName("Convert xlink SVG 2 namespace and preserve local reference")
   void preserveLocalAnchorXLinkHref() throws Exception {
     String svgTestFile = "Flag_of_the_United_States.svg";
     // Convert output to string for verification
@@ -212,6 +212,10 @@ class SVGSanitizerTest {
         String.format("Dirty \"%s\" should contain internal references", svgTestFile));
 
     String sanitizedSvg = SVGSanitizer.sanitize(dirtySvg);
+
+    assertFalse(sanitizedSvg.contains("xlink:href=\""), "should not contain any xlink attributes");
+    assertTrue(
+        sanitizedSvg.contains("<use href=\"#s\" y=\"420\"/>"), "should preserve local references");
 
     // Save sanitized SVG for debugging
     saveSvg(sanitizedSvg, svgTestFile);

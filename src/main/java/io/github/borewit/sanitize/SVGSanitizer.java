@@ -262,8 +262,6 @@ public class SVGSanitizer {
           "color-rendering",
           "orientation",
           "white-space", // https://www.w3.org/TR/css-text-3/#white-space-property
-          // non SVG attributes
-          "xmlns",
           // ARIA metadata attributes which may appear in SVG elements
           "aria-activedescendant",
           "aria-atomic",
@@ -562,9 +560,8 @@ public class SVGSanitizer {
       StartElement startElement, XMLEventFactory eventFactory) {
     final Iterator<Attribute> attributes = startElement.getAttributes();
     final List<Attribute> sanitizedAttributes = new ArrayList<>();
-    boolean foundOffendingAttributes = false;
     while (attributes.hasNext()) {
-      final Attribute attr = attributes.next();
+      Attribute attr = attributes.next();
       final QName attrName = attr.getName();
 
       // Resolve attribute specification namespace-URI
@@ -574,48 +571,52 @@ public class SVGSanitizer {
       }
       ns = ns.toLowerCase();
 
-      final String localName = attrName.getLocalPart();
-      final String attrValue = attr.getValue().toLowerCase();
+      attr = sanitizeAttribute(eventFactory, ns, attr);
 
-      if (includeAttribute(ns, localName, attrValue)) {
+      if (attr != null) {
         sanitizedAttributes.add(attr);
-      } else {
-        foundOffendingAttributes = true;
       }
     }
-    return foundOffendingAttributes
-        // Create a new StartElement without the unwanted attributes
-        ? eventFactory.createStartElement(
-            startElement.getName(), sanitizedAttributes.iterator(), startElement.getNamespaces())
-        // Element was fine, return original
-        : startElement;
+    return eventFactory.createStartElement(
+        startElement.getName(), sanitizedAttributes.iterator(), startElement.getNamespaces());
   }
 
   /**
    * Assess attribute for inclusion
    *
+   * @param eventFactory XMLEventFactory instance
    * @param ns Namespace specification of the attribute, or empty
-   * @param localName Attribute name
-   * @param attrValue Attribute value
+   * @param attribute Attribute to sanitize
    * @return true if the attribute is considered safe for inclusion
    */
-  private static boolean includeAttribute(String ns, String localName, String attrValue) {
+  private static Attribute sanitizeAttribute(
+      XMLEventFactory eventFactory, String ns, Attribute attribute) {
     if (ns.isEmpty()) {
       // No namespace defined
-      return false;
+      return null;
     }
+
+    String localName = attribute.getName().getLocalPart();
 
     Set<String> attributeWhiteList = NamespaceAttributeMap.get(ns);
     if (attributeWhiteList != null) {
-      return attributeWhiteList.contains(localName) && !attrValue.startsWith("javascript:");
-    }
-
-    if (NS_XLINK.equals(ns)) {
-      if ("href".equals(localName)) {
-        return attrValue.startsWith("data:") || attrValue.startsWith("#");
+      if (attributeWhiteList.contains(localName)
+          && !attribute.getValue().startsWith("javascript:")) {
+        return attribute;
       }
     }
 
-    return false;
+    // Convert XLINK attributes to SVG 2.0 attribute, within the SVG namespace
+    if (NS_XLINK.equals(ns)) {
+      attribute = eventFactory.createAttribute(localName, attribute.getValue());
+    }
+
+    if ("href".equals(localName)) {
+      if (attribute.getValue().startsWith("data:") || attribute.getValue().startsWith("#")) {
+        return attribute;
+      }
+    }
+
+    return null;
   }
 }

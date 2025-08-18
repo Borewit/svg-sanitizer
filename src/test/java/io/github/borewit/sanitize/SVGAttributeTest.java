@@ -209,6 +209,10 @@ public class SVGAttributeTest {
       lowerCaseAttributes.add(attribute.toLowerCase());
     }
 
+    for (String attribute : SVGSanitizer.SAFE_XML_ATTRIBUTES) {
+      lowerCaseAttributes.add(attribute.toLowerCase());
+    }
+
     lowerCaseAttributes.add("href"); // xlink attribute
 
     for (String attribute : SVGSanitizer.SAFE_SVG_DEPRECATED_ATTRIBUTES) {
