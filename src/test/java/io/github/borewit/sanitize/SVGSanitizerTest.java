@@ -103,7 +103,12 @@ class SVGSanitizerTest {
     Map<String, String> svgXmlHashMap = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     for (String svgTestFile : testFiles) {
       String dirtySvg = this.getFixtureAsString(svgTestFile);
-      String sanitizedSvg = SVGSanitizer.sanitize(dirtySvg);
+      String sanitizedSvg;
+      try {
+        sanitizedSvg = SVGSanitizer.sanitize(dirtySvg);
+      } catch (Exception e) {
+        throw new Exception("Failed to sanitize " + svgTestFile, e);
+      }
       try {
         svgXmlHashMap.put(svgTestFile, XmlHash.digest(sanitizedSvg));
       } catch (Exception e) {
