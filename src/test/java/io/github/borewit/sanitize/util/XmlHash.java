@@ -5,7 +5,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -74,16 +73,8 @@ public class XmlHash {
       combined.write(doctypeStr.getBytes(StandardCharsets.UTF_8));
       combined.write(baos.toByteArray());
 
-      // Hash
-      MessageDigest md = MessageDigest.getInstance("SHA-256");
-      byte[] digest = md.digest(combined.toByteArray());
-
-      // Convert to hex
-      StringBuilder hex = new StringBuilder();
-      for (byte b : digest) {
-        hex.append(String.format("%02x", b));
-      }
-      return hex.toString();
+      // Hash combined canonicalized content
+      return CommonUtil.sha256Sum(combined.toByteArray());
     } catch (NoSuchAlgorithmException | UnsupportedEncodingException e) {
       throw new DigestException("Failed to hash canonicalized XML data", e);
     } catch (IOException ioException) {
