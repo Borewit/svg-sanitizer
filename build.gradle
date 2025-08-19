@@ -10,6 +10,10 @@ plugins {
 apply plugin: 'maven-publish'
 
 repositories {
+  // CSS4J for io.sf.carte:echosvg-transcoder
+  maven {
+    url 'https://css4j.github.io/maven/'
+  }
   // Use Maven Central for resolving dependencies.
   mavenCentral()
 }
@@ -17,6 +21,7 @@ repositories {
 dependencies {
   testImplementation 'org.apache.santuario:xmlsec:4.0.4'
   testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.19.2'
+  testImplementation 'io.sf.carte:echosvg-transcoder:2.2'
 }
 
 testing {

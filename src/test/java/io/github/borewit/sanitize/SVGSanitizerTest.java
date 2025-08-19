@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.borewit.sanitize.util.CheckSvg;
 import io.github.borewit.sanitize.util.DigestException;
 import io.github.borewit.sanitize.util.HashLoader;
+import io.github.borewit.sanitize.util.SvgHash;
 import io.github.borewit.sanitize.util.XmlHash;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -57,6 +58,7 @@ class SVGSanitizerTest {
   }
 
   @Test
+  @DisplayName("Generate JSON Hash-map")
   void generateJsonHashMap() throws Exception {
     // List of test files
     Set<String> testFiles =
@@ -70,6 +72,7 @@ class SVGSanitizerTest {
             "eicar.svg",
             "externalimage.svg",
             "externalimage2.svg",
+            "friendly.svg",
             "Flag_of_the_United_States.svg",
             "form-action.svg",
             "form-action2.svg",
@@ -121,6 +124,23 @@ class SVGSanitizerTest {
     String json = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(svgXmlHashMap);
     json += "\n"; // Add empty line for Git
     Files.write(PATH_BUILD.resolve("svg-xml-hash-map.json"), json.getBytes(StandardCharsets.UTF_8));
+  }
+
+  @Test
+  @DisplayName("Regression for visual changes in SVG output")
+  void svgRegression() throws Exception {
+
+    final String svgTestFile = "friendly.svg";
+    // Convert output to string for verification
+    final String dirtySvg = this.getFixtureAsString(svgTestFile);
+    // The rendering maybe different on different systems, hence the hash
+    final String dirtyVisualHash = SvgHash.digest(dirtySvg);
+    final String sanitizedSvg = SVGSanitizer.sanitize(dirtySvg);
+    final String sanitizedVisualHash = SvgHash.digest(sanitizedSvg);
+    assertEquals(dirtyVisualHash, sanitizedVisualHash, "Visual hash sanitized SVG file");
+
+    // Save sanitized SVG for debugging
+    saveSvg(sanitizedSvg, svgTestFile);
   }
 
   @ParameterizedTest
