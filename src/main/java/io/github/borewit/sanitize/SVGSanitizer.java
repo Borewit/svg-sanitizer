@@ -48,11 +48,78 @@ public class SVGSanitizer {
   private static final Set<Integer> UNSAFE_EVENT_TYPES =
       Set.of(XMLStreamConstants.DTD, XMLStreamConstants.ENTITY_REFERENCE);
 
-  private static final Set<String> UNSAFE_ELEMENTS =
-      Set.of("script", "foreignObject", "iframe", "embed", "object");
-
   public static final Set<String> SAFE_XML_ATTRIBUTES =
       Set.of("version", "encoding", "xmlns", "space");
+
+  /**
+   * MDN listed SVG elements Reference:
+   * https://developer.mozilla.org/en-US/docs/Web/SVG/Reference/Element
+   */
+  public static final Set<String> SAFE_SVG_ELEMENTS =
+      Set.of(
+          "a",
+          "animate",
+          "animateMotion",
+          "animateTransform",
+          "circle",
+          "clipPath",
+          "defs",
+          "desc",
+          "ellipse",
+          "feBlend",
+          "feColorMatrix",
+          "feComponentTransfer",
+          "feComposite",
+          "feConvolveMatrix",
+          "feDiffuseLighting",
+          "feDisplacementMap",
+          "feDistantLight",
+          "feDropShadow",
+          "feFlood",
+          "feFuncA",
+          "feFuncB",
+          "feFuncG",
+          "feFuncR",
+          "feGaussianBlur",
+          "feImage",
+          "feMerge",
+          "feMergeNode",
+          "feMorphology",
+          "feOffset",
+          "fePointLight",
+          "feSpecularLighting",
+          "feSpotLight",
+          "feTile",
+          "feTurbulence",
+          "filter",
+          // "foreignObject", // Unsafe
+          "g",
+          "image",
+          "line",
+          "linearGradient",
+          "marker",
+          "mask",
+          "metadata",
+          "mpath",
+          "path",
+          "pattern",
+          "polygon",
+          "polyline",
+          "radialGradient",
+          "rect",
+          // "script", Unsafe
+          "set",
+          "stop",
+          "style",
+          "svg",
+          "switch",
+          "symbol",
+          "text",
+          "textPath",
+          "title",
+          "tspan",
+          "use",
+          "view");
 
   /**
    * MDN listed SVG attributes listed Reference:
@@ -437,8 +504,12 @@ public class SVGSanitizer {
           } else {
             // Handle start elements
             final StartElement startElement = event.asStartElement();
-            final String localElementName = startElement.getName().getLocalPart().toLowerCase();
-            if (UNSAFE_ELEMENTS.contains(localElementName)) {
+            final QName elementQName = startElement.getName();
+            final String localElementName = elementQName.getLocalPart();
+            // White list filter SVG elements
+            if (!NS_SVG.equals(elementQName.getNamespaceURI())
+                || !SAFE_SVG_ELEMENTS.contains(localElementName)) {
+              // White list filter SVG elements
               skipElementAndChildren(eventReader);
             } else if ("style".equals(localElementName)) {
               filterStyle(eventWriter, startElement, eventReader);
