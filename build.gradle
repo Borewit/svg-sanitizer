@@ -80,10 +80,6 @@ tasks.register('javadocJar', Jar) {
   from(tasks.named('javadoc'))
 }
 
-tasks.named('jreleaserDeploy') {
-  dependsOn tasks.named('publishMavenJavaPublicationToPreDeployRepository')
-}
-
 publishing {
   publications {
 
@@ -97,6 +93,7 @@ publishing {
         name = 'SVG-Sanitizer'
         description = 'A Java library for sanitizing SVG files by removing JavaScript, blocking external resources, and preventing XSS vulnerabilities.'
         url = 'https://github.com/Borewit/svg-sanitizer'
+        packaging = 'jar'
         licenses {
           license {
             name = 'MIT'
@@ -139,8 +136,24 @@ if (!project.hasProperty('skip.signing')) {
     setRequired {
       gradle.taskGraph.allTasks.any { it.name.contains("LocalMavenWithChecksums") }
     }
+    useGpgCmd()
     sign publishing.publications.mavenJava
   }
+}
+
+// Create pre-deploy folder before deploying
+tasks.register('createPreDeployDir') {
+  doLast {
+    def dir = layout.buildDirectory.dir("pre-deploy").get().asFile
+    if (!dir.exists()) {
+      dir.mkdirs()
+      println "Created pre-deploy directory at: $dir"
+    }
+  }
+}
+
+tasks.named("jreleaserDeploy") {
+  dependsOn tasks.named('createPreDeployDir')
 }
 
 jreleaser {
@@ -161,8 +174,8 @@ jreleaser {
         sonatype {
           active = 'ALWAYS'
           url = 'https://central.sonatype.com/api/v1/publisher'
-          username = findProperty("ossrhUsername") ?: System.getenv("OSSRH_USERNAME")
-          password = findProperty("ossrhPassword") ?: System.getenv("OSSRH_PASSWORD")
+          username = findProperty("ossrhUsername") ?: ""
+          password = findProperty("ossrhPassword") ?: ""
           stagingRepository('build/pre-deploy')
         }
       }
@@ -175,3 +188,4 @@ jreleaser {
   }
 }
 
+// To release: ./gradlew clean build publishMavenJavaPublicationToPreDeployRepository jreleaseDeploy
