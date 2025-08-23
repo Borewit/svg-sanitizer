@@ -19,6 +19,9 @@ repositories {
 }
 
 dependencies {
+  // https://github.com/phax/ph-css/
+  implementation('com.helger:ph-css:7.0.5')
+  // https://mvnrepository.com/artifact/org.apache.commons/commons-text
   testImplementation 'org.apache.santuario:xmlsec:4.0.4'
   testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.19.2'
   testImplementation 'io.sf.carte:echosvg-transcoder:2.2'

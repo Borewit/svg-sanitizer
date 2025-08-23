@@ -558,7 +558,7 @@ public class SVGSanitizer {
     }
 
     // Sanitize the CSS and write it
-    final String cleanedStyle = sanitizeCss(styleContent.toString());
+    final String cleanedStyle = CssSanitizer.sanitizeCss(styleContent.toString());
 
     if (!cleanedStyle.isBlank()) {
 
@@ -590,17 +590,6 @@ public class SVGSanitizer {
       }
     }
     return safeAttributes.iterator();
-  }
-
-  private static String sanitizeCss(String css) {
-    return css.replaceAll("(?i)expression\\s*\\(", "")
-        .replaceAll("(?i)javascript\\s*:", "")
-        .replaceAll("(?i)url\\s*\\(\\s*['\"]?javascript:[^)]*\\)", "")
-        .replaceAll("(?i)@import\\s+(url\\()?['\"]?[^'\")]+['\"]?\\)?\\s*;?", "")
-        .replaceAll("(?i)srcdoc\\s*=", "")
-        .replaceAll("(?i)<\\s*(script|iframe|textarea)[^>]*>", "")
-        .replaceAll("<", "") // remove any remaining angle brackets
-        .replaceAll(">", "");
   }
 
   /**

@@ -69,6 +69,7 @@ class SVGSanitizerTest {
             "circleBlink.svg",
             "circleBlinkJS.svg",
             "circleWithS.svg",
+            "css-js-payload.svg",
             "eicar.svg",
             "externalimage.svg",
             "externalimage2.svg",
@@ -408,6 +409,9 @@ class SVGSanitizerTest {
     // Convert output to string for verification
     String sanitizedSvg = SVGSanitizer.sanitize(dirtySvg);
 
+    // Save sanitized SVG for debugging
+    saveSvg(sanitizedSvg, svgTestFile);
+
     assertFalse(
         CheckSvg.containsJavaScript(sanitizedSvg),
         String.format(
@@ -439,5 +443,24 @@ class SVGSanitizerTest {
 
     // Save sanitized SVG for debugging
     saveSvg(sanitizedSvg, svgTestFile);
+  }
+
+  @Test
+  @DisplayName("css-js-payload.svg")
+  void cssJsPayload() throws Exception {
+    final String svgTestFile = "css-js-payload.svg";
+    String sanitizedSvg;
+    try (InputStream inputStream = SVGSanitizer.sanitize(this.getFixture(svgTestFile))) {
+      ByteArrayOutputStream result = new ByteArrayOutputStream();
+      byte[] buffer = new byte[1024];
+      for (int length; (length = inputStream.read(buffer)) != -1; ) {
+        result.write(buffer, 0, length);
+      }
+      sanitizedSvg = result.toString(StandardCharsets.UTF_8);
+      // Save sanitized SVG for debugging
+      saveSvg(sanitizedSvg, svgTestFile);
+
+      assertHash(sanitizedSvg, svgTestFile);
+    }
   }
 }
