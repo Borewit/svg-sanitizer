@@ -1,0 +1,82 @@
+name: Dependabot Pull Request
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: dependabot-labels-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.pull_request.user.login == 'dependabot[bot]' }}
+    steps:
+      # Read the diff through the API; never check out or execute PR code.
+      - name: Label dependency scope
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const issue = {...context.repo, issue_number: pr.number};
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              ...context.repo, pull_number: pr.number, per_page: 100
+            });
+
+            // Recognize only version changes to known development declarations.
+            // Unknown declarations and mixed runtime/development updates stay visible
+            // as runtime dependencies. Gradle metadata does not expose test scopes.
+            function declaration(file, line) {
+              if (file === 'build.gradle') {
+                const dependency = line.match(/^\s*(testImplementation|testCompileOnly|testRuntimeOnly|testAnnotationProcessor)\s*\(?\s*(['"])([^'"\s:]+:[^'"\s:]+):[^'"\s]+\2\s*\)?\s*;?\s*$/);
+                if (dependency) return `${dependency[1]}:${dependency[3]}`;
+                const plugin = line.match(/^\s*id\s+(['"])([^'"]+)\1\s+version\s+(['"])[^'"]+\3\s*$/);
+                if (plugin) return `plugin:${plugin[2]}`;
+                if (/^\s*useJUnitJupiter\(\s*(['"])[^'"]+\1\s*\)\s*$/.test(line)) return 'junit';
+              }
+              if (file === 'gradle/wrapper/gradle-wrapper.properties' &&
+                  /^distributionUrl=https\\:\/\/services\.gradle\.org\/distributions\/gradle-[\w.-]+-(bin|all)\.zip\s*$/.test(line)) {
+                return 'gradle-wrapper';
+              }
+              return null;
+            }
+
+            function developmentOnly(file) {
+              if (file.status !== 'modified' || !file.patch) return false;
+              const before = [];
+              const after = [];
+              for (const line of file.patch.split('\n')) {
+                if (line[0] !== '+' && line[0] !== '-') continue;
+                const key = declaration(file.filename, line.slice(1));
+                if (!key) return false;
+                (line[0] === '+' ? after : before).push(key);
+              }
+              // Scope changes, additions, removals and incomplete patches are not
+              // sufficient evidence of a development-only version update.
+              return before.length > 0 && before.length === file.deletions &&
+                after.length === file.additions &&
+                JSON.stringify(before.sort()) === JSON.stringify(after.sort());
+            }
+
+            const label = files.length > 0 && files.length === pr.changed_files &&
+              files.every(developmentOnly) ? 'dev-dependencies' : 'dependencies';
+            const {data: current} = await github.rest.pulls.get({
+              ...context.repo, pull_number: pr.number
+            });
+            if (current.head.sha !== pr.head.sha) {
+              core.info('PR head changed; leaving labels to the newer run');
+              return;
+            }
+            core.info(`Dependency scope label: ${label}`);
+            await github.rest.issues.addLabels({...issue, labels: [label]});
+            const opposite = label === 'dev-dependencies' ? 'dependencies' : 'dev-dependencies';
+            try {
+              await github.rest.issues.removeLabel({...issue, name: opposite});
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
