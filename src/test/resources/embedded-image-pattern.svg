@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="10" height="10" viewBox="0 0 10 10">
+  <rect width="10" height="10" fill="url(#pattern)"/>
+  <defs>
+    <pattern id="pattern" patternUnits="userSpaceOnUse" width="10" height="10">
+      <use xlink:href="#embedded"/>
+    </pattern>
+    <image id="embedded" width="10" height="10" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg=="/>
+  </defs>
+</svg>

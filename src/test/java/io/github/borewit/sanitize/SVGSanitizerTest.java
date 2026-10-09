@@ -2,6 +2,7 @@ package io.github.borewit.sanitize;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -227,8 +228,9 @@ class SVGSanitizerTest {
     saveSvg(sanitizedSvg, svgTestFile);
   }
 
+  /** Verifies that local references retain their XLink namespace for SVG 1.1 renderers. */
   @Test
-  @DisplayName("Convert xlink SVG 2 namespace and preserve local reference")
+  @DisplayName("Preserve XLink local references")
   void preserveLocalAnchorXLinkHref() throws Exception {
     String svgTestFile = "Flag_of_the_United_States.svg";
     // Convert output to string for verification
@@ -239,14 +241,19 @@ class SVGSanitizerTest {
 
     String sanitizedSvg = SVGSanitizer.sanitize(dirtySvg);
 
-    assertFalse(sanitizedSvg.contains("xlink:href=\""), "should not contain any xlink attributes");
     assertTrue(
-        sanitizedSvg.contains("<use href=\"#s\" y=\"420\"/>"), "should preserve local references");
+        sanitizedSvg.contains("<use xlink:href=\"#s\" y=\"420\"/>"),
+        "should preserve local references");
 
     // Save sanitized SVG for debugging
     saveSvg(sanitizedSvg, svgTestFile);
   }
 
+  /**
+   * Verifies that sanitizing an entity-expansion fixture removes its entity definitions.
+   *
+   * @param svgTestFile fixture containing entity declarations
+   */
   @ParameterizedTest
   @DisplayName("Sanitize entity references")
   @ValueSource(strings = {"billionlaughs.svg"})
@@ -393,6 +400,7 @@ class SVGSanitizerTest {
     assertFalse(sanitizedSvg.contains("evil.css"), "Should not contain any external URLs");
   }
 
+  /** Verifies that sanitizing removes JavaScript touch event handlers. */
   @Test
   @DisplayName("Sanitize ontouchstart")
   void clearOnTouchStart() throws Exception {
@@ -417,6 +425,285 @@ class SVGSanitizerTest {
     saveSvg(sanitizedSvg, svgTestFile);
   }
 
+  /**
+   * Verifies that preserving an embedded image and its XLink references preserves rendered pixels.
+   */
+  @Test
+  @DisplayName("Preserve an embedded PNG referenced through a pattern")
+  void preserveEmbeddedImageInPattern() throws Exception {
+    String original = getFixtureAsString("embedded-image-pattern.svg");
+    String sanitized = SVGSanitizer.sanitize(original);
+
+    String originalVisualHash = SvgHash.digest(original);
+    assertNotEquals(
+        originalVisualHash,
+        SvgHash.digest(original.replace("<use xlink:href=\"#embedded\"/>", "")),
+        "The fixture must visibly render the embedded PNG");
+    assertEquals(originalVisualHash, SvgHash.digest(sanitized));
+    assertTrue(sanitized.contains("xlink:href=\"data:image/png;base64,"));
+    assertTrue(sanitized.contains("xlink:href=\"#embedded\""));
+  }
+
+  /**
+   * Verifies that embedded images and local references survive while event handlers are removed.
+   *
+   * @param href unqualified or XLink attribute name, including an alternative XLink prefix
+   */
+  @ParameterizedTest
+  @ValueSource(strings = {"href", "xlink:href", "link:href"})
+  void preserveEmbeddedPngAndRemoveEventHandlers(String href) throws Exception {
+    String png =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==";
+    String original =
+        "<svg xmlns=\"http://www.w3.org/2000/svg\""
+            + " xmlns:xlink=\"http://www.w3.org/1999/xlink\""
+            + " xmlns:link=\"http://www.w3.org/1999/xlink\">"
+            + "<image id=\"embedded\" "
+            + href
+            + "=\""
+            + png
+            + "\" onload=\"alert(1)\"/>"
+            + "<use "
+            + href
+            + "=\"#embedded\" onclick=\"alert(1)\"/></svg>";
+
+    String sanitized = SVGSanitizer.sanitize(original);
+
+    assertTrue(sanitized.contains("<image"));
+    assertTrue(sanitized.contains(href + "=\"" + png + "\""));
+    assertTrue(sanitized.contains(href + "=\"#embedded\""));
+    assertFalse(sanitized.contains("onload"));
+    assertFalse(sanitized.contains("onclick"));
+  }
+
+  /**
+   * Verifies that unsafe image URLs and XLink use references are removed in both supported
+   * namespaces.
+   *
+   * @param url external, relative, file, or JavaScript reference that must be rejected
+   */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "https://example.com/image.png", "//example.com/image.png", "image.png",
+        "file:///tmp/image.png", "javascript:alert(1)", "JaVaScRiPt:alert(1)"
+      })
+  void rejectUnsafeImageReferencesInBothNamespaces(String url) throws Exception {
+    String original =
+        "<svg xmlns=\"http://www.w3.org/2000/svg\""
+            + " xmlns:xlink=\"http://www.w3.org/1999/xlink\">"
+            + "<image href=\""
+            + url
+            + "\"/>"
+            + "<image xlink:href=\""
+            + url
+            + "\"/>"
+            + "<use xlink:href=\""
+            + url
+            + "\"/></svg>";
+
+    String sanitized = SVGSanitizer.sanitize(original);
+
+    assertFalse(sanitized.contains("<image"));
+    assertFalse(sanitized.contains("href="));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {"href", "xlink:href", "link:href", " href ", "&#x68;ref", "xlink:hr&#x65;f"})
+  void rejectAnimationsTargetingImageReferences(String target) throws Exception {
+    for (String animation : Set.of("animate", "set", "animateTransform", "animateMotion")) {
+      for (String valueAttribute : Set.of("to", "from", "by", "values")) {
+        String original =
+            "<svg xmlns=\"http://www.w3.org/2000/svg\""
+                + " xmlns:xlink=\"http://www.w3.org/1999/xlink\""
+                + " xmlns:link=\"http://www.w3.org/1999/xlink\">"
+                + "<image id=\"embedded\" xlink:href=\"#safe\"><"
+                + animation
+                + " attributeName=\""
+                + target
+                + "\" "
+                + valueAttribute
+                + "=\"#safe;https://example.com/image.png\"/></image>"
+                + "<"
+                + animation
+                + " href=\"#embedded\" attributeName=\""
+                + target
+                + "\" "
+                + valueAttribute
+                + "=\"https://example.com/image.png\"/>"
+                + "<rect id=\"following\"/></svg>";
+
+        String sanitized = SVGSanitizer.sanitize(original);
+
+        assertFalse(sanitized.contains("<" + animation), animation + " targeting " + target);
+        assertFalse(sanitized.contains("example.com"));
+        assertTrue(sanitized.contains("xlink:href=\"#safe\""));
+        assertTrue(sanitized.contains("id=\"following\""));
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"animate", "set"})
+  void preserveVisualAnimations(String animation) throws Exception {
+    String original =
+        "<svg xmlns=\"http://www.w3.org/2000/svg\"><rect><"
+            + animation
+            + " attributeName=\"opacity\" from=\"0\" to=\"1\" dur=\"1s\"/></rect></svg>";
+
+    String sanitized = SVGSanitizer.sanitize(original);
+
+    assertTrue(sanitized.contains("<" + animation));
+    assertTrue(sanitized.contains("attributeName=\"opacity\""));
+    assertTrue(sanitized.contains("to=\"1\""));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==",
+        "data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9J2FsZXJ0KDEpJy8+",
+        "data:image/svg+xml,%3Csvg%20onload='alert(1)'/%3E",
+        "data:image/png;base64,PHN2ZyBvbmxvYWQ9J2FsZXJ0KDEpJy8+",
+        "data:image/png;base64,iVBORw0KGgo=!!!",
+        "data:image/png;base64,iVBORw0KGgo=PHN2Zz4=",
+        "data:image/png;charset=utf-8;base64,iVBORw0KGgo=",
+        "data:image/png;base64,"
+      })
+  void rejectActiveOrMalformedEmbeddedData(String url) throws Exception {
+    for (String href : Set.of("href", "xlink:href", "link:href")) {
+      String original =
+          "<svg xmlns=\"http://www.w3.org/2000/svg\""
+              + " xmlns:xlink=\"http://www.w3.org/1999/xlink\""
+              + " xmlns:link=\"http://www.w3.org/1999/xlink\">"
+              + "<image "
+              + href
+              + "=\""
+              + url
+              + "\"/>"
+              + "<feImage "
+              + href
+              + "=\""
+              + url
+              + "\"/>"
+              + "<a "
+              + href
+              + "=\""
+              + url
+              + "\"/></svg>";
+      String sanitized = SVGSanitizer.sanitize(original);
+      assertFalse(sanitized.contains("href="), url);
+      assertFalse(sanitized.contains("<image"), url);
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"a", "use", "animate", "set", "svg"})
+  void restrictRasterDataToImageElements(String element) throws Exception {
+    String original =
+        "<svg xmlns=\"http://www.w3.org/2000/svg\""
+            + " xmlns:xlink=\"http://www.w3.org/1999/xlink\"><"
+            + element
+            + " xlink:href=\"data:image/png;base64,iVBORw0KGgo=\"/></svg>";
+    assertFalse(SVGSanitizer.sanitize(original).contains("href="));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "data:image/png;base64,iVBORw0KGgo=",
+        "data:image/jpeg;base64,/9j/2Q==",
+        "data:image/gif;base64,R0lGODlh"
+      })
+  void allowRasterSignaturesOnlyInImageContexts(String url) throws Exception {
+    for (String element : Set.of("image", "feImage")) {
+      for (String href : Set.of("href", "xlink:href")) {
+        String original =
+            "<svg xmlns=\"http://www.w3.org/2000/svg\""
+                + " xmlns:xlink=\"http://www.w3.org/1999/xlink\"><"
+                + element
+                + " "
+                + href
+                + "=\""
+                + url
+                + "\"/></svg>";
+        assertTrue(SVGSanitizer.sanitize(original).contains(href + "=\"" + url + "\""));
+      }
+    }
+  }
+
+  @Test
+  void preserveBothSafeReferencesWithoutDuplicateAttributes() throws Exception {
+    String sanitized =
+        SVGSanitizer.sanitize(
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\">"
+                + "<image href=\"#modern\" xlink:href=\"#legacy\"/></svg>");
+    assertTrue(sanitized.contains("href=\"#modern\""));
+    assertTrue(sanitized.contains("xlink:href=\"#legacy\""));
+    assertEquals(XmlHash.digest(sanitized), XmlHash.digest(SVGSanitizer.sanitize(sanitized)));
+  }
+
+  @Test
+  void preserveSafeXLinkWhenModernReferenceIsUnsafe() throws Exception {
+    String sanitized =
+        SVGSanitizer.sanitize(
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\">"
+                + "<image href=\"javascript:alert(1)\" xlink:href=\"#legacy\"/></svg>");
+    assertTrue(sanitized.contains("<image"));
+    assertTrue(sanitized.contains("xlink:href=\"#legacy\""));
+    assertFalse(sanitized.contains("javascript:"));
+  }
+
+  @Test
+  void removeActiveDataXLinkFallback() throws Exception {
+    String original =
+        "<svg xmlns=\"http://www.w3.org/2000/svg\""
+            + " xmlns:xlink=\"http://www.w3.org/1999/xlink\">"
+            + "<a href=\"#safe\" xlink:href=\"data:text/html;base64,PHNjcmlwdD4=\"/></svg>";
+    String sanitized = SVGSanitizer.sanitize(original);
+    assertTrue(sanitized.contains("href=\"#safe\""));
+    assertFalse(sanitized.contains("xlink:href="));
+  }
+
+  /** Verifies that a safe href does not allow an unsafe XLink fallback to survive. */
+  @Test
+  void removeUnsafeXLinkFallbackWhenSafeHrefIsPresent() throws Exception {
+    String sanitized =
+        SVGSanitizer.sanitize(
+            "<svg xmlns=\"http://www.w3.org/2000/svg\""
+                + " xmlns:xlink=\"http://www.w3.org/1999/xlink\">"
+                + "<image href=\"#safe\" xlink:href=\"https://example.com/image.png\"/></svg>");
+
+    assertTrue(sanitized.contains("href=\"#safe\""));
+    assertFalse(sanitized.contains("xlink:href="));
+    assertFalse(sanitized.contains("example.com"));
+  }
+
+  @Test
+  void preserveXmlSpaceAndRejectLookalikeXLinkNamespace() throws Exception {
+    String sanitized =
+        SVGSanitizer.sanitize(
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" xml:space=\"preserve\""
+                + " xmlns:fake=\"HTTP://WWW.W3.ORG/1999/XLINK\">"
+                + "<image href=\"#safe\" fake:href=\"#forged\"/></svg>");
+    assertTrue(sanitized.contains("xml:space=\"preserve\""));
+    assertTrue(sanitized.contains("href=\"#safe\""));
+    assertFalse(sanitized.contains("fake:href="));
+  }
+
+  /** Verifies that an unknown namespace cannot supply an otherwise allowed image data URL. */
+  @Test
+  void rejectHrefInUnknownNamespace() throws Exception {
+    String sanitized =
+        SVGSanitizer.sanitize(
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:other=\"urn:other\">"
+                + "<image other:href=\"data:image/png;base64,iVBORw0KGgo=\"/></svg>");
+
+    assertFalse(sanitized.contains("<image"));
+  }
+
+  /** Verifies that unqualified image references retain embedded data and reject external URLs. */
   @Test
   @DisplayName("Sanitize image href")
   void testSanitizingImageHref() throws Exception {
