@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
+import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.apache.xml.security.c14n.CanonicalizationException;
@@ -46,6 +47,9 @@ public class XmlHash {
       DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
       dbf.setNamespaceAware(true);
       dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false);
+      // Preserve the DOCTYPE for hashing without loading its external subset.
+      dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+      dbf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
       dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
       dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
       DocumentBuilder db = dbf.newDocumentBuilder();
