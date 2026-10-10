@@ -542,23 +542,34 @@ public class SVGSanitizer {
 
     // Sanitize attributes and preserve namespace
     QName elementName = startElement.getName();
-    Iterator<Attribute> sanitizedAttributes = sanitizeAttributes(startElement.getAttributes());
+    Iterator<Attribute> sanitizedAttributes =
+        getElementWithSanitizedAttributes(startElement, eventFactory).getAttributes();
     Iterator<Namespace> namespaces = startElement.getNamespaces();
 
-    // Accumulate text inside <style> block
+    // Bound buffering while consuming the entire element, including malformed nested markup.
     StringBuilder styleContent = new StringBuilder();
-    while (eventReader.hasNext()) {
+    int depth = 1;
+    boolean invalid = false;
+    while (eventReader.hasNext() && depth > 0) {
       XMLEvent event = eventReader.nextEvent();
-      if (event.isEndElement()
-          && "style".equalsIgnoreCase(event.asEndElement().getName().getLocalPart())) {
-        break;
-      } else if (event.isCharacters()) {
-        styleContent.append(event.asCharacters().getData());
+      if (event.isStartElement()) {
+        depth++;
+        invalid = true;
+      } else if (event.isEndElement()) {
+        depth--;
+      } else if (event.isCharacters() && !invalid) {
+        String text = event.asCharacters().getData();
+        if (text.length() > CssSanitizer.MAX_CSS_LENGTH - styleContent.length()) {
+          invalid = true;
+        } else {
+          styleContent.append(text);
+        }
+      } else if (event.getEventType() == XMLStreamConstants.ENTITY_REFERENCE) {
+        invalid = true;
       }
     }
 
-    // Sanitize the CSS and write it
-    final String cleanedStyle = sanitizeCss(styleContent.toString());
+    final String cleanedStyle = invalid ? "" : CssSanitizer.sanitizeCss(styleContent.toString());
 
     if (!cleanedStyle.isBlank()) {
 
@@ -578,29 +589,6 @@ public class SVGSanitizer {
           eventFactory.createEndElement(
               elementName.getPrefix(), elementName.getNamespaceURI(), elementName.getLocalPart()));
     }
-  }
-
-  private static Iterator<Attribute> sanitizeAttributes(Iterator<Attribute> attributes) {
-    List<Attribute> safeAttributes = new ArrayList<>();
-    while (attributes.hasNext()) {
-      Attribute attr = attributes.next();
-      String name = attr.getName().getLocalPart().toLowerCase();
-      if (!name.startsWith("on") && !"style".equals(name)) {
-        safeAttributes.add(attr);
-      }
-    }
-    return safeAttributes.iterator();
-  }
-
-  private static String sanitizeCss(String css) {
-    return css.replaceAll("(?i)expression\\s*\\(", "")
-        .replaceAll("(?i)javascript\\s*:", "")
-        .replaceAll("(?i)url\\s*\\(\\s*['\"]?javascript:[^)]*\\)", "")
-        .replaceAll("(?i)@import\\s+(url\\()?['\"]?[^'\")]+['\"]?\\)?\\s*;?", "")
-        .replaceAll("(?i)srcdoc\\s*=", "")
-        .replaceAll("(?i)<\\s*(script|iframe|textarea)[^>]*>", "")
-        .replaceAll("<", "") // remove any remaining angle brackets
-        .replaceAll(">", "");
   }
 
   /**
@@ -682,6 +670,16 @@ public class SVGSanitizer {
     if (attributeWhiteList != null) {
       if (attributeWhiteList.contains(localName)
           && !attribute.getValue().startsWith("javascript:")) {
+        if ("style".equals(localName)) {
+          String cleaned = CssSanitizer.sanitizeInlineStyle(attribute.getValue());
+          return cleaned.isBlank()
+              ? null
+              : eventFactory.createAttribute(attribute.getName(), cleaned);
+        }
+        if (CssSanitizer.isCssProperty(localName)
+            && !CssSanitizer.isSafePresentationAttribute(localName, attribute.getValue())) {
+          return null;
+        }
         return attribute;
       }
     }
