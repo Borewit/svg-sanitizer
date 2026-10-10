@@ -111,6 +111,8 @@ public static InputStream sanitize(InputStream inputStream)
 Acts as a filter, returning a new `InputStream` with the sanitized SVG.
 
 ## Security considerations
+Embedded `data:` references are accepted only on `<image>` and `<feImage>` for base64 PNG, JPEG, and GIF data with matching file signatures. HTML, nested SVG, and other data types are removed. Image signatures and encoding are checked without decoding the whole image; this does not validate image integrity. Animations targeting `href` or prefixed `href` attributes are removed.
+
 User-uploaded SVGs can contain malicious content that may be executed in a browser context. Sanitizing SVGs is an important step, but should be combined with other measures for full protection.
 See [SVG security best practices](SVG-security-best-practices.md) for a broader overview.
 

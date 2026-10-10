@@ -10,8 +10,10 @@ import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import javax.xml.namespace.QName;
@@ -41,9 +43,12 @@ import javax.xml.stream.events.XMLEvent;
  */
 public class SVGSanitizer {
 
-  private static final String NS_XML = "http://www.w3.org/xml/1998/namespace";
+  private static final String NS_XML = "http://www.w3.org/XML/1998/namespace";
   private static final String NS_SVG = "http://www.w3.org/2000/svg";
   private static final String NS_XLINK = "http://www.w3.org/1999/xlink";
+
+  private static final Set<String> ANIMATION_ELEMENTS =
+      Set.of("animate", "animateMotion", "animateTransform", "set");
 
   private static final Set<Integer> UNSAFE_EVENT_TYPES =
       Set.of(XMLStreamConstants.DTD, XMLStreamConstants.ENTITY_REFERENCE);
@@ -511,6 +516,9 @@ public class SVGSanitizer {
                 || !SAFE_SVG_ELEMENTS.contains(localElementName)) {
               // White list filter SVG elements
               skipElementAndChildren(eventReader);
+            } else if (isReferenceAnimation(startElement)) {
+              // Animation values must not replace an already sanitized URL reference.
+              skipElementAndChildren(eventReader);
             } else if ("style".equals(localElementName)) {
               filterStyle(eventWriter, startElement, eventReader);
             } else {
@@ -518,7 +526,8 @@ public class SVGSanitizer {
                   getElementWithSanitizedAttributes(startElement, eventFactory);
               if ("image".equals(localElementName)
                   && NS_SVG.equals(sanitizedElement.getName().getNamespaceURI())) {
-                if (sanitizedElement.getAttributeByName(new QName(null, "href")) == null) {
+                if (sanitizedElement.getAttributeByName(new QName("href")) == null
+                    && sanitizedElement.getAttributeByName(new QName(NS_XLINK, "href")) == null) {
                   skipElementAndChildren(eventReader);
                   continue;
                 }
@@ -603,6 +612,19 @@ public class SVGSanitizer {
         .replaceAll(">", "");
   }
 
+  /** Rejects URL reference animations, including targets using an alternative XLink prefix. */
+  private static boolean isReferenceAnimation(StartElement element) {
+    if (!ANIMATION_ELEMENTS.contains(element.getName().getLocalPart())) {
+      return false;
+    }
+    Attribute target = element.getAttributeByName(new QName("attributeName"));
+    if (target == null) {
+      return false;
+    }
+    String name = target.getValue().trim();
+    return "href".equals(name) || name.endsWith(":href");
+  }
+
   /**
    * Skips the current element and all its child elements in the XML event stream.
    *
@@ -649,9 +671,7 @@ public class SVGSanitizer {
       if (ns.isEmpty()) {
         ns = startElement.getName().getNamespaceURI();
       }
-      ns = ns.toLowerCase();
-
-      attr = sanitizeAttribute(eventFactory, ns, attr);
+      attr = sanitizeAttribute(ns, attr, startElement.getName().getLocalPart());
 
       if (attr != null) {
         sanitizedAttributes.add(attr);
@@ -662,15 +682,15 @@ public class SVGSanitizer {
   }
 
   /**
-   * Assess attribute for inclusion
+   * Returns an allowed attribute without changing its name or namespace. SVG and XLink references
+   * are retained only for local fragments and embedded raster images in image contexts.
    *
-   * @param eventFactory XMLEventFactory instance
    * @param ns Namespace specification of the attribute, or empty
    * @param attribute Attribute to sanitize
-   * @return true if the attribute is considered safe for inclusion
+   * @param elementName Local name of the SVG element containing the attribute
+   * @return the original attribute if allowed, or {@code null} if it must be removed
    */
-  private static Attribute sanitizeAttribute(
-      XMLEventFactory eventFactory, String ns, Attribute attribute) {
+  private static Attribute sanitizeAttribute(String ns, Attribute attribute, String elementName) {
     if (ns.isEmpty()) {
       // No namespace defined
       return null;
@@ -686,17 +706,78 @@ public class SVGSanitizer {
       }
     }
 
-    // Convert XLINK attributes to SVG 2.0 attribute, within the SVG namespace
-    if (NS_XLINK.equals(ns)) {
-      attribute = eventFactory.createAttribute(localName, attribute.getValue());
-    }
-
-    if ("href".equals(localName)) {
-      if (attribute.getValue().startsWith("data:") || attribute.getValue().startsWith("#")) {
+    // Preserve XLink references for SVG 1.1 renderers, with the same URL restrictions as href.
+    if ("href".equals(localName) && (NS_SVG.equals(ns) || NS_XLINK.equals(ns))) {
+      String value = attribute.getValue();
+      if (value.startsWith("#")
+          || (("image".equals(elementName) || "feImage".equals(elementName))
+              && isRasterDataUrl(value))) {
         return attribute;
       }
     }
 
     return null;
+  }
+
+  /**
+   * Allows base64 PNG, JPEG, and GIF data with matching file signatures. Checks encoding without
+   * decoding the whole image or invoking an image parser; this does not validate image integrity.
+   */
+  private static boolean isRasterDataUrl(String value) {
+    int comma = value.indexOf(',');
+    if (comma < 0 || comma > 32) {
+      return false;
+    }
+    String header = value.substring(0, comma).toLowerCase(Locale.ROOT);
+    if (!Set.of("data:image/png;base64", "data:image/jpeg;base64", "data:image/gif;base64")
+        .contains(header)) {
+      return false;
+    }
+
+    // Validate all base64 characters, but retain only enough to inspect the signature.
+    StringBuilder prefix = new StringBuilder(12);
+    int length = 0;
+    int padding = 0;
+    for (int i = comma + 1; i < value.length(); i++) {
+      char c = value.charAt(i);
+      if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
+        continue;
+      }
+      if (c == '=') {
+        if (++padding > 2) {
+          return false;
+        }
+      } else if (padding != 0
+          || !(c >= 'A' && c <= 'Z'
+              || c >= 'a' && c <= 'z'
+              || c >= '0' && c <= '9'
+              || c == '+'
+              || c == '/')) {
+        return false;
+      }
+      length++;
+      if (prefix.length() < 12) {
+        prefix.append(c);
+      }
+    }
+    if (length == 0 || length % 4 != 0) {
+      return false;
+    }
+    try {
+      String signature =
+          new String(Base64.getDecoder().decode(prefix.toString()), StandardCharsets.ISO_8859_1);
+      switch (header) {
+        case "data:image/png;base64":
+          return signature.startsWith("\u0089PNG\r\n\u001a\n");
+        case "data:image/jpeg;base64":
+          return signature.startsWith("\u00ff\u00d8\u00ff");
+        case "data:image/gif;base64":
+          return signature.startsWith("GIF87a") || signature.startsWith("GIF89a");
+        default:
+          return false;
+      }
+    } catch (IllegalArgumentException e) {
+      return false;
+    }
   }
 }
