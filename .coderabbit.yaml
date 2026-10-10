@@ -5,3 +5,8 @@ reviews:
       - "dependabot[bot]"
       - "renovate[bot]"
   poem: false
+  in_progress_fortune: false
+
+chat:
+  art: false
+  poem: false
